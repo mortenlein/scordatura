@@ -2,6 +2,8 @@
 
 An elegant, offline-first Electron application designed to help you build and manage your personal library of guitar tabs. Say goodbye to ads, auto-scrolling videos, and cluttered interfaces—just your favorite tabs, beautifully formatted for practice and performance.
 
+> _Scordatura ([skordaˈtuːra]; literally, Italian for "discord", or "mistuning") is a tuning of a string instrument that is different from the normal, standard tuning._
+
 ### Dashboard
 ![Dashboard Overview](images/Preview_1.png)
 
@@ -13,13 +15,13 @@ An elegant, offline-first Electron application designed to help you build and ma
 
 ## ✨ Features
 
-- **Universal Importer**: Seamlessly import chords and tabs directly from the web's biggest and most popular guitar tab websites.
+- **Universal Importer**: Seamlessly import chords and tabs directly from the web's biggest and most popular guitar tab websites. You can scrape an entire artist's discography by pasting their top-level page URL, or pull in a specific song by pasting its direct link.
 - **Batch Artist Import**: Paste an artist link to automatically find, sort, and import their most highly-rated tabs in one go.
 - **Offline-First Library**: Your entire collection is saved locally to your machine. Practice anywhere, anytime—no internet connection required.
 - **Beautiful Multi-Column Layout**: Tabs are automatically parsed and displayed in a clean, distraction-free environment that maximizes your screen real estate.
 - **Dynamic Chord Diagrams**: View beautifully rendered, accurate chord diagrams right alongside your sheet music.
-- **Instant Transposition**: Change the key of any song on the fly with built-in transposition tools.
-- **Custom Tunings**: Create, save, and apply your own custom guitar tunings to any tab.
+- **Instant Transposition under Custom Tunings**: Change the key of any song on the fly with built-in transposition tools—even while your guitar is actively set to a custom tuning.
+- **Custom Tunings & Dynamic Chords**: Create, save, and apply your own custom guitar tunings. As you switch tunings, the chord diagrams will dynamically alter to show you exactly how to play those specific chord shapes in your currently selected tuning.
 - **Favorites System**: Star your go-to songs for instant access in your library sidebar.
 - **Customizable Views**: Adjust font sizes and toggle visual elements to match your practice environment perfectly.
 
