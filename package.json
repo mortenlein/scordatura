@@ -4,12 +4,32 @@
   "description": "An Electron app to scrape and format Ultimate Guitar tabs side-by-side.",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.mortenlein.scordatura",
+    "productName": "Scordatura",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "runAfterFinish": true
+    }
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^29.1.0"
+    "electron": "^29.1.0",
+    "electron-builder": "^26.8.1"
   },
   "dependencies": {
     "cheerio": "^1.2.0"
