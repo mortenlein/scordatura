@@ -1,4 +1,4 @@
-# Guitar Tab Sorter
+# Scordatura
 
 An elegant, offline-first Electron application designed to help you build and manage your personal library of guitar tabs. Say goodbye to ads, auto-scrolling videos, and cluttered interfaces—just your favorite tabs, beautifully formatted for practice and performance.
 
@@ -23,8 +23,8 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 1. Clone or download this repository:
    ```bash
-   git clone https://github.com/yourusername/guitartabsorter.git
-   cd guitartabsorter
+   git clone https://github.com/mortenlein/scordatura.git
+   cd scordatura
    ```
 
 2. Install the necessary dependencies:
@@ -39,7 +39,7 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 ## 🛠️ Built With
 
-- **Electron** - For the cross-platform desktop framework
+- **Electroguitartabsortern** - For the cross-platform desktop framework
 - **Vanilla JS / HTML / CSS** - For a lightweight, blazing-fast user interface
 - **Cheerio** - For robust parsing and importing of web content
 
