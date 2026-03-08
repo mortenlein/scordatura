@@ -2,6 +2,15 @@
 
 An elegant, offline-first Electron application designed to help you build and manage your personal library of guitar tabs. Say goodbye to ads, auto-scrolling videos, and cluttered interfaces—just your favorite tabs, beautifully formatted for practice and performance.
 
+### Dashboard
+![Dashboard Overview](images/Preview_1.png)
+
+### Tab View
+![Reading a Tab](images/Preview_2.png)
+
+### Custom Tunings
+![Tuning Systems Settings](images/Preview_3.png)
+
 ## ✨ Features
 
 - **Universal Importer**: Seamlessly import chords and tabs directly from the web's biggest and most popular guitar tab websites.
@@ -39,7 +48,7 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 ## 🛠️ Built With
 
-- **Electroguitartabsortern** - For the cross-platform desktop framework
+- **Electron** - For the cross-platform desktop framework
 - **Vanilla JS / HTML / CSS** - For a lightweight, blazing-fast user interface
 - **Cheerio** - For robust parsing and importing of web content
 
