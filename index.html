@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scordatura</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Custom Frameless Title Bar -->
+    <div class="title-bar">
+      <div class="title-bar-drag-area"></div>
+      <div class="window-controls">
+        <button id="minBtn" class="win-btn">&#xE921;</button>
+        <button id="maxBtn" class="win-btn">&#xE922;</button>
+        <button id="closeBtn" class="win-btn win-close">&#xE8BB;</button>
+      </div>
+    </div>
+
+    <header class="top-bar">
+      <h1 class="app-logo"><span>Scorda</span>tura</h1>
+      <div class="input-group">
+        <input type="url" id="urlInput" placeholder="Paste tab URL here..." />
+        <button id="fetchBtn">Fetch Tabs</button>
+      </div>
+      <div class="header-right-controls">
+        <div id="controlsGroup" class="controls-group hidden">
+          <button id="transposeDownBtn" class="secondary-btn" title="Transpose Down">-</button>
+          <div id="transposeLabel">Transpose: 0</div>
+          <button id="transposeUpBtn" class="secondary-btn" title="Transpose Up">+</button>
+        </div>
+        <button id="openSettingsBtn" class="action-btn" style="border-color: transparent;" title="Settings"><svg
+            class="svg-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+          </svg></button>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <!-- Sidebar for Library -->
+      <aside class="sidebar">
+        <h2><svg class="svg-icon" style="margin-right: 6px; vertical-align: text-bottom;"
+            xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+            </polygon>
+          </svg>Starred</h2>
+        <div id="starredContainer" class="library-tree"
+          style="flex: 0 0 auto; max-height: 40%; border-bottom: 1px solid #333;">
+          <!-- Starred items will be injected here -->
+        </div>
+        <h2>Local Library</h2>
+        <div id="libraryContainer" class="library-tree">
+          <!-- Library items will be injected here -->
+        </div>
+      </aside>
+
+      <!-- Main Tab Area -->
+      <main class="content-area">
+        <div id="loadingIndicator" class="hidden loading-overlay">
+          <div class="tuning-pegs">
+            <div class="peg"></div>
+            <div class="peg"></div>
+            <div class="peg"></div>
+            <div class="peg"></div>
+            <div class="peg"></div>
+            <div class="peg"></div>
+          </div>
+          <div class="loading-text">Tuning strings and resolving tabs...</div>
+        </div>
+        <div id="errorMessage" class="hidden error"></div>
+
+        <!-- Premium Background Orbs -->
+        <div class="bg-orb orb-1"></div>
+        <div class="bg-orb orb-2"></div>
+        <div class="bg-orb orb-3"></div>
+
+        <div id="dashboardView" class="dashboard-container">
+          <!-- Background decorative elements -->
+          <div class="glow-orb orb-1"></div>
+          <div class="glow-orb orb-2"></div>
+
+          <div class="dashboard-content">
+            <div class="dashboard-hero">
+              <span class="hero-badge">Library Overview</span>
+              <h1>Master Your <span>Chords</span></h1>
+              <p>Explore your collection of tabs, transpose on the fly, and perfect your performance with Scordatura's
+                professional tools.</p>
+              <div class="hero-actions">
+                <button class="primary-hero-btn" onclick="document.getElementById('urlInput').focus()">Import New
+                  Tab</button>
+              </div>
+            </div>
+
+            <div class="dashboard-grid">
+              <div class="stat-card tab-card">
+                <div class="card-glow"></div>
+                <div class="stat-header">
+                  <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M2 3h6a4 4 0 0 1 4 4v14a3.3 3.3 0 0 0-3-3H2z" />
+                      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3.3 3.3 0 0 1 3-3h7z" />
+                    </svg>
+                  </div>
+                  <span class="stat-label">Total Tabs</span>
+                </div>
+                <span class="stat-value" id="statTotalTabs">0</span>
+              </div>
+
+              <div class="stat-card artist-card">
+                <div class="card-glow"></div>
+                <div class="stat-header">
+                  <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </div>
+                  <span class="stat-label">Artists</span>
+                </div>
+                <span class="stat-value" id="statTotalArtists">0</span>
+              </div>
+
+              <div class="stat-card star-card">
+                <div class="card-glow"></div>
+                <div class="stat-header">
+                  <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                      </polygon>
+                    </svg>
+                  </div>
+                  <span class="stat-label">Favorites</span>
+                </div>
+                <span class="stat-value" id="statStarredTabs">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabViewSheet" class="tab-view-sheet hidden">
+          <div class="song-header" id="songHeader">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <h2 id="songTitle"></h2>
+                <h3 id="artistName"></h3>
+              </div>
+              <div class="song-actions">
+                <button id="starBtn" class="action-btn" title="Toggle Favorite"><svg class="svg-icon"
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon
+                      points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                    </polygon>
+                  </svg></button>
+                <button id="editBtn" class="action-btn" title="Edit Tab"><svg class="svg-icon"
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                  </svg></button>
+                <button id="deleteBtn" class="action-btn delete" title="Delete Tab"><svg class="svg-icon"
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg></button>
+              </div>
+            </div>
+          </div>
+
+          <div id="chordDiagrams" class="chord-diagrams hidden"></div>
+
+          <div class="tab-scroll-wrapper">
+            <div id="tabContainer" class="columns-container hidden"></div>
+            <textarea id="tabEditor" class="tab-editor hidden" spellcheck="false"></textarea>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Persistent Bottom Status Bar -->
+    <footer class="status-bar">
+      <div class="status-section">
+        <span>Tuning:</span>
+        <select id="quickTuningSelect" class="status-select"></select>
+      </div>
+
+      <div class="status-section">
+        <button id="showChordsBtn" class="action-btn" title="Toggle Chord Diagrams"
+          style="padding: 4px; display: flex; align-items: center; justify-content: center;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="9" y1="21" x2="9" y2="9"></line>
+            <line x1="15" y1="21" x2="15" y2="9"></line>
+          </svg>
+        </button>
+        <button id="smallChordsBtn" class="action-btn" title="Toggle Diagram Size"
+          style="padding: 4px; display: flex; align-items: center; justify-content: center; margin-left: 4px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3">
+            </path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="status-section">
+        <button id="fontDecreaseBtn" class="action-btn" style="padding: 2px 6px; font-size: 0.8rem;">-</button>
+        <span id="fontSizeLabel"
+          style="min-width: 16px; text-align: center; color: var(--text-main); font-weight: bold; font-size: 0.8rem; letter-spacing: 0;">14</span>
+        <button id="fontIncreaseBtn" class="action-btn" style="padding: 2px 6px; font-size: 0.8rem;">+</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Settings Modal (Hidden by default) -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><svg class="svg-icon" style="margin-right: 6px; vertical-align: text-bottom;"
+            xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+            </path>
+          </svg>Settings</h2>
+        <span class="close-modal" id="closeSettingsBtn">&times;</span>
+      </div>
+
+      <div class="settings-section"
+        style="display: flex; flex-direction: column; flex: 1; overflow: hidden; margin-bottom: 0;">
+        <h3>Select Tuning</h3>
+        <p class="settings-desc">Changes chord shapes. Star a tuning to pin it.</p>
+        <div id="tuningList" class="tuning-list" style="flex: 1; max-height: none;">
+          <!-- Dynamically populated tunings -->
+        </div>
+
+        <div class="custom-tuning-builder">
+          <h4>Add Custom Tuning</h4>
+          <input type="text" id="tuningName" placeholder="Tuning Name (e.g. Open C)"
+            style="margin-bottom: 12px; width: 100%; box-sizing: border-box; background: var(--bg-color); border: 1px solid #333; color: var(--text-main); padding: 8px; box-shadow: var(--shadow-inset); border-radius: 4px;" />
+          <div class="tuning-inputs">
+            <select id="t6" title="Lowest String"></select>
+            <select id="t5"></select>
+            <select id="t4"></select>
+            <select id="t3"></select>
+            <select id="t2"></select>
+            <select id="t1" title="Highest String"></select>
+          </div>
+          <button id="addTuningBtn" style="margin-top: 12px; width: 100%;">Add Tuning</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Custom Confirmation Modal -->
+  <div id="confirmModal" class="modal hidden">
+    <div class="modal-content confirm-modal-content">
+      <div class="modal-body">
+        <p id="confirmMessage"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="confirmCancelBtn" class="secondary-btn">Cancel</button>
+        <button id="confirmDeleteBtn" class="action-btn delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>

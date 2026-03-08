@@ -1,0 +1,17 @@
+{
+  "name": "guitartabsorter",
+  "version": "1.0.0",
+  "description": "An Electron app to scrape and format Ultimate Guitar tabs side-by-side.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^29.1.0"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0"
+  }
+}

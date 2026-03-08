@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+app-builds/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+temp/
+tmp/
+tabs/
+
+# Ignore generated debug, html extracts, test scripts, and json raw dumps
+batch_debug.log
+test*.js
+parse_*.js
+ug_*.js
+ug_*.json
+final_test.js
+row_dump.html
+example-chord.txt
+reference.png
+icon_generator.html
+capture_icon.js
+chords.json
