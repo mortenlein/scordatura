@@ -639,6 +639,7 @@ deleteBtn.addEventListener('click', async () => {
         chordDiagrams.classList.add('hidden');
         if (isEditing) exitEditMode();
         currentTabMetadata = null;
+        rawParsedText = '';
 
         await refreshLibrary();
     }
