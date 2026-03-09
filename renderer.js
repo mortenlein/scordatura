@@ -430,10 +430,25 @@ async function refreshLibrary() {
 
             const artistHeader = document.createElement('div');
             artistHeader.className = 'artist-header';
+            artistHeader.style.cursor = 'pointer';
+
+            const toggleDiv = document.createElement('div');
+            toggleDiv.style.display = 'flex';
+            toggleDiv.style.alignItems = 'center';
+            toggleDiv.style.flex = '1';
+
+            const chevron = document.createElement('span');
+            chevron.className = 'artist-chevron';
+            chevron.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; transition: transform 0.2s; color: var(--text-muted);"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+            chevron.style.display = 'flex';
+            chevron.style.alignItems = 'center';
 
             const artistTitle = document.createElement('div');
             artistTitle.className = 'artist-name';
             artistTitle.textContent = artist.artistName;
+
+            toggleDiv.appendChild(chevron);
+            toggleDiv.appendChild(artistTitle);
 
             const deleteArtistBtn = document.createElement('button');
             deleteArtistBtn.className = 'delete-artist-btn';
@@ -456,9 +471,14 @@ async function refreshLibrary() {
                 }
             });
 
-            artistHeader.appendChild(artistTitle);
+            artistHeader.appendChild(toggleDiv);
             artistHeader.appendChild(deleteArtistBtn);
             group.appendChild(artistHeader);
+
+            artistHeader.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-artist-btn')) return;
+                group.classList.toggle('collapsed');
+            });
 
             artist.songs.forEach(song => {
                 const songItem = document.createElement('div');
@@ -535,10 +555,56 @@ function appendTabToSidebar(artistName, songName, id, isStarred, animate) {
         artistGroup = document.createElement('div');
         artistGroup.className = 'artist-group';
 
+        const artistHeader = document.createElement('div');
+        artistHeader.className = 'artist-header';
+        artistHeader.style.cursor = 'pointer';
+
+        const toggleDiv = document.createElement('div');
+        toggleDiv.style.display = 'flex';
+        toggleDiv.style.alignItems = 'center';
+        toggleDiv.style.flex = '1';
+
+        const chevron = document.createElement('span');
+        chevron.className = 'artist-chevron';
+        chevron.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; transition: transform 0.2s; color: var(--text-muted);"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+        chevron.style.display = 'flex';
+        chevron.style.alignItems = 'center';
+
         const artistTitle = document.createElement('div');
         artistTitle.className = 'artist-name';
         artistTitle.textContent = artistName;
-        artistGroup.appendChild(artistTitle);
+
+        toggleDiv.appendChild(chevron);
+        toggleDiv.appendChild(artistTitle);
+        artistHeader.appendChild(toggleDiv);
+
+        const deleteArtistBtn = document.createElement('button');
+        deleteArtistBtn.className = 'delete-artist-btn';
+        deleteArtistBtn.title = `Delete all ${artistName} tabs`;
+        deleteArtistBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+        deleteArtistBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (await window.api.showConfirm(`Delete ALL tabs by "${artistName}"? This cannot be undone.`)) {
+                // Fetch library to find artistId purely to delete
+                const lib = await window.api.loadLibrary();
+                const matched = lib.find(a => a.artistName === artistName);
+                if (matched) {
+                    await window.api.deleteArtist(matched.artistId);
+                    if (currentTabMetadata && currentTabMetadata.id.startsWith(matched.artistId + '/')) {
+                        tabViewSheet.classList.add('hidden');
+                    }
+                    await refreshLibrary();
+                }
+            }
+        });
+
+        artistHeader.appendChild(deleteArtistBtn);
+        artistGroup.appendChild(artistHeader);
+
+        artistHeader.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-artist-btn')) return;
+            artistGroup.classList.toggle('collapsed');
+        });
 
         libraryContainer.appendChild(artistGroup);
     }
