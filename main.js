@@ -104,7 +104,7 @@ ipcMain.handle('scrape-url', async (event, url) => {
             // URL format: /artist/tom_odell_39037 -> slug: tom-odell
             const artistMatch = url.match(/\/artist\/([a-z0-9_]+?)_\d+\/?$/);
             const artistSlug = artistMatch ? artistMatch[1].replace(/_/g, '-') : null;
-            fs.appendFileSync(path.join(app.getAppPath(), 'batch_debug.log'), `\nArtist slug: ${artistSlug}`);
+            console.log(`\nArtist slug: ${artistSlug}`);
 
             while (true) {
                 let currentUrl = url;
@@ -172,7 +172,7 @@ ipcMain.handle('scrape-url', async (event, url) => {
                     artistName = artistName.replace(/ tabs$/i, ''); // Strip trailing " tabs"
                 }
 
-                fs.appendFileSync(path.join(app.getAppPath(), 'batch_debug.log'), `\\nPage ${page} found ${newTabsThisPage} new tabs.`);
+                console.log(`\nPage ${page} found ${newTabsThisPage} new tabs.`);
 
                 if (newTabsThisPage === 0) {
                     break;
@@ -194,7 +194,7 @@ ipcMain.handle('scrape-url', async (event, url) => {
                 bestTabs.push(best);
             });
 
-            fs.appendFileSync(path.join(app.getAppPath(), 'batch_debug.log'), `\\nReturning: ${bestTabs.length} tabs for ${artistName}`);
+            console.log(`\nReturning: ${bestTabs.length} tabs for ${artistName}`);
 
             return { isBatch: true, artist: artistName, tabs: bestTabs };
         }
