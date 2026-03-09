@@ -990,13 +990,14 @@ function renderTabs() {
         });
         formattedText = formattedText.replace(/\[tab\]/g, '').replace(/\[\/tab\]/g, '');
     } else {
-        // Fallback full-text scanning regex (upgraded for slash chords and digits)
-        const scanRegex = /(\b[A-G][#b]?(?:m|min|maj|M|dim|aug|sus)?\d*(?:add\d+)?\b(?:(?:\/|-)[A-G][#b]?)?\s*)+$/gm;
+        // Fallback full-text scanning regex (upgraded for slash chords and digits, fixed for #/b boundaries)
+        const scanRegex = /(?:(?:^|\s+)[A-G][#b]?(?:m|min|maj|M|dim|aug|sus)?\d*(?:add\d+)?(?:(?:\/|-)[A-G][#b]?)?(?=\s|$))+\s*$/gm;
         formattedText = formattedText.replace(scanRegex, match => {
-            return match.replace(/\b[A-G][#b]?(?:m|min|maj|M|dim|aug|sus)?\d*(?:add\d+)?\b(?:(?:\/|-)[A-G][#b]?)?/g, chordMatch => {
+            return match.replace(/(?:^|\s+)([A-G][#b]?(?:m|min|maj|M|dim|aug|sus)?\d*(?:add\d+)?(?:(?:\/|-)[A-G][#b]?)?)(?=\s|$)/g, (fullMatch, chordMatch) => {
                 const transposed = transposeChordAndSlash(chordMatch, currentTranspose);
                 usedChords.add(transposed.split('/')[0]);
-                return `<span style="color: var(--accent); font-weight: bold;">${transposed}</span>`;
+                // Reconstruct the spacing correctly
+                return fullMatch.replace(chordMatch, `<span style="color: var(--accent); font-weight: bold;">${transposed}</span>`);
             });
         });
     }
