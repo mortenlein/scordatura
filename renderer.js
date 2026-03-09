@@ -3,7 +3,10 @@ const fetchBtn = document.getElementById('fetchBtn');
 const tabContainer = document.getElementById('tabContainer');
 const tabViewSheet = document.getElementById('tabViewSheet');
 const tabEditor = document.getElementById('tabEditor');
-const loadingIndicator = document.getElementById('loadingIndicator');
+const loadingIndicator = document.getElementById('loadingIndicator'); // Deprecated, keeping var for safety if I missed a spot
+const scraperProgressSection = document.getElementById('scraperProgressSection');
+const scraperStatusText = document.getElementById('scraperStatusText');
+const scraperProgressBar = document.getElementById('scraperProgressBar');
 const errorMessage = document.getElementById('errorMessage');
 const controlsGroup = document.getElementById('controlsGroup');
 const transposeUpBtn = document.getElementById('transposeUpBtn');
@@ -322,7 +325,6 @@ function showDashboard() {
     tabEditor.classList.add('hidden');
     controlsGroup.classList.add('hidden');
     chordDiagrams.classList.add('hidden');
-    loadingIndicator.classList.add('hidden');
     errorMessage.classList.add('hidden');
 
     // Show dashboard
@@ -583,9 +585,12 @@ async function loadTabFromLibrary(id, element) {
         songHeader.classList.add('hidden');
         controlsGroup.classList.add('hidden');
         chordDiagrams.classList.add('hidden');
-        loadingIndicator.classList.remove('hidden');
-        const lt = loadingIndicator.querySelector('.loading-text');
-        if (lt) lt.textContent = 'Loading saved tab...';
+
+        scraperProgressSection.classList.remove('hidden');
+        scraperProgressSection.style.display = 'flex';
+        scraperStatusText.textContent = 'Loading saved tab...';
+        scraperProgressBar.style.width = '100%';
+        scraperProgressBar.parentElement.style.display = 'block';
 
         document.querySelectorAll('.song-item').forEach(el => el.classList.remove('active'));
         if (element) element.classList.add('active');
@@ -611,7 +616,8 @@ async function loadTabFromLibrary(id, element) {
         errorMessage.textContent = 'Failed to load tab: ' + e.message;
         errorMessage.classList.remove('hidden');
     } finally {
-        loadingIndicator.classList.add('hidden');
+        scraperProgressSection.classList.add('hidden');
+        scraperProgressSection.style.display = 'none';
     }
 }
 
@@ -1064,20 +1070,15 @@ fetchBtn.addEventListener('click', async () => {
     if (isEditing) exitEditMode();
 
     errorMessage.classList.add('hidden');
-    tabViewSheet.classList.add('hidden');
-    tabContainer.classList.add('hidden');
-    songHeader.classList.add('hidden');
-    controlsGroup.classList.add('hidden');
-    chordDiagrams.classList.add('hidden');
-    dashboardView.classList.add('hidden');
-    loadingIndicator.innerHTML = `
-        <div class="tuning-pegs">
-            <div class="peg"></div><div class="peg"></div><div class="peg"></div>
-            <div class="peg"></div><div class="peg"></div><div class="peg"></div>
-        </div>
-        <div class="loading-text">Tuning strings and resolving tabs...</div>
-    `;
-    loadingIndicator.classList.remove('hidden');
+
+    // We intentionally do NOT hide the current tab view anymore so the user can keep reading!
+    // dashboardView.classList.add('hidden');
+
+    scraperProgressSection.classList.remove('hidden');
+    scraperProgressSection.style.display = 'flex';
+    scraperStatusText.textContent = 'Warming up scraper...';
+    scraperProgressBar.style.width = '2%';
+
     fetchBtn.disabled = true;
     urlInput.value = ''; // clear input
 
@@ -1097,7 +1098,8 @@ fetchBtn.addEventListener('click', async () => {
                 throw new Error("No chords or tabs found for this artist.");
             }
 
-            loadingText.textContent = `Found ${total} songs for ${result.artist}. Starting batch download...`;
+            scraperStatusText.textContent = `Found ${total} songs for ${result.artist}. Starting batch download...`;
+            scraperProgressBar.style.width = '5%';
 
             let lastParsedText = '';
             let lastMetadata = null;
@@ -1106,7 +1108,9 @@ fetchBtn.addEventListener('click', async () => {
 
             for (let i = 0; i < total; i++) {
                 const tab = result.tabs[i];
-                loadingText.textContent = `Fetching ${i + 1} of ${total}: ${tab.name}...`;
+                const progressPct = Math.round(((i + 1) / total) * 100);
+                scraperStatusText.textContent = `Fetching ${i + 1} of ${total}: ${tab.name}...`;
+                scraperProgressBar.style.width = `${progressPct}%`;
 
                 try {
                     // Small delay to prevent hammering the network and getting blocked
@@ -1152,22 +1156,19 @@ fetchBtn.addEventListener('click', async () => {
                 }
             }
 
-            // Render the final summary screen
-            loadingText.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <h3>Batch Complete!</h3>
-                    <p>Successfully imported: <strong style="color: #00ff88;">${successCount}</strong> tabs</p>
-                    <p style="color: #ff5555; margin-bottom: 20px;">Failed / Timed out: <strong>${failCount}</strong> tabs</p>
-                    <button id="batch-done-btn" style="background-color: var(--scorda-orange); color: var(--background); padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">View Last Tab</button>
-                </div>
-            `;
+            // Render the final summary in the footer briefly
+            scraperStatusText.textContent = `Batch Complete! (${successCount} successes, ${failCount} fails). Loading final tab...`;
+            scraperProgressBar.style.width = `100%`;
 
-            await new Promise(resolve => {
-                loadingText.querySelector('#batch-done-btn').addEventListener('click', resolve, { once: true });
-            });
+            // Give the user a tiny 1.5s delay to actually read the completion success state
+            await new Promise(r => setTimeout(r, 1500));
 
             // Render the final tab fetched
             if (lastMetadata) {
+
+                // Only hide the UI elements at the very last millisecond so the swap is clean
+                dashboardView.classList.add('hidden');
+
                 rawParsedText = lastParsedText;
                 currentTabMetadata = lastMetadata;
                 songTitleEl.textContent = currentTabMetadata.song;
@@ -1188,6 +1189,10 @@ fetchBtn.addEventListener('click', async () => {
             }
         } else {
             // --- Standard Single Tab Scraping ---
+
+            scraperStatusText.textContent = 'Formatting tab...';
+            scraperProgressBar.style.width = '80%';
+
             // basic HTML escape
             rawParsedText = result.text
                 .replace(/&/g, "&amp;")
@@ -1213,15 +1218,22 @@ fetchBtn.addEventListener('click', async () => {
             const savedEl = document.querySelector(`.song-item[data-id="${newId}"]`);
             if (savedEl) savedEl.classList.add('active');
 
+            // Only hide dashboard at the very end to swap
+            dashboardView.classList.add('hidden');
+
             songHeader.classList.remove('hidden');
             tabContainer.classList.remove('hidden');
             controlsGroup.classList.remove('hidden');
+
+            scraperStatusText.textContent = 'Done!';
+            scraperProgressBar.style.width = '100%';
         }
     } catch (error) {
         errorMessage.textContent = error.message;
         errorMessage.classList.remove('hidden');
     } finally {
-        loadingIndicator.classList.add('hidden');
+        scraperProgressSection.classList.add('hidden');
+        scraperProgressSection.style.display = 'none';
         fetchBtn.disabled = false;
     }
 });
