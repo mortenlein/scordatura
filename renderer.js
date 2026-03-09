@@ -584,7 +584,8 @@ async function loadTabFromLibrary(id, element) {
         controlsGroup.classList.add('hidden');
         chordDiagrams.classList.add('hidden');
         loadingIndicator.classList.remove('hidden');
-        loadingIndicator.textContent = 'Loading saved tab...';
+        const lt = loadingIndicator.querySelector('.loading-text');
+        if (lt) lt.textContent = 'Loading saved tab...';
 
         document.querySelectorAll('.song-item').forEach(el => el.classList.remove('active'));
         if (element) element.classList.add('active');
@@ -1069,6 +1070,13 @@ fetchBtn.addEventListener('click', async () => {
     controlsGroup.classList.add('hidden');
     chordDiagrams.classList.add('hidden');
     dashboardView.classList.add('hidden');
+    loadingIndicator.innerHTML = `
+        <div class="tuning-pegs">
+            <div class="peg"></div><div class="peg"></div><div class="peg"></div>
+            <div class="peg"></div><div class="peg"></div><div class="peg"></div>
+        </div>
+        <div class="loading-text">Tuning strings and resolving tabs...</div>
+    `;
     loadingIndicator.classList.remove('hidden');
     fetchBtn.disabled = true;
     urlInput.value = ''; // clear input
