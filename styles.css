@@ -917,6 +917,19 @@ button:disabled {
   user-select: none;
 }
 
+.artist-header .artist-name {
+  color: var(--scorda-orange);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+  margin-bottom: 0;
+}
+
+.artist-header .artist-chevron svg {
+  margin-left: 8px;
+  margin-right: 6px !important;
+}
+
 .artist-group.collapsed .song-item {
   display: none;
 }
