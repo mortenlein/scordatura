@@ -1163,7 +1163,7 @@ fetchBtn.addEventListener('click', async () => {
             `;
 
             await new Promise(resolve => {
-                document.getElementById('batch-done-btn').addEventListener('click', resolve, { once: true });
+                loadingText.querySelector('#batch-done-btn').addEventListener('click', resolve, { once: true });
             });
 
             // Render the final tab fetched
