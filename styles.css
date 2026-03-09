@@ -918,7 +918,7 @@ button:disabled {
 }
 
 .artist-header .artist-name {
-  color: var(--scorda-orange);
+  color: var(--accent);
   font-weight: 600;
   font-size: 0.95rem;
   letter-spacing: 0.5px;
