@@ -1078,7 +1078,7 @@ function renderTabs() {
     // Split text by blank lines to group lines (like chords + lyrics together)
     // Wrap each block in a div to prevent column breaking
     const blocks = formattedText.split(/\n\s*\n/);
-    formattedText = blocks.map(block => `<div class="tab-block">${block}</div>`).join('\n\n');
+    formattedText = blocks.map(block => `<div class="tab-block">${block}</div>`).join('\n');
 
     tabContainer.innerHTML = formattedText;
     transposeLabel.textContent = `Transpose: ${(currentTranspose > 0 ? '+' : '')}${currentTranspose}`;
