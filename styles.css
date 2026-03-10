@@ -295,7 +295,7 @@ button:disabled {
 }
 
 .artist-name {
-  padding: 8px 20px;
+  padding: 8px 8px 8px 4px;
   color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: bold;
@@ -307,7 +307,7 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 20px 8px 27px;
+  padding: 8px 20px 8px 32px;
   color: var(--text-main);
   font-size: 0.95rem;
   cursor: pointer;
@@ -926,8 +926,8 @@ button:disabled {
 }
 
 .artist-header .artist-chevron svg {
-  margin-left: 8px;
-  margin-right: 6px !important;
+  margin-left: 6px;
+  margin-right: 4px !important;
 }
 
 .artist-group.collapsed .song-item {
