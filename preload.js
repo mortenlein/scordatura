@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('api', {
     getChordDb: () => ipcRenderer.invoke('get-chord-db'),
     minimizeApp: () => ipcRenderer.invoke('minimize-app'),
     maximizeApp: () => ipcRenderer.invoke('maximize-app'),
-    closeApp: () => ipcRenderer.invoke('close-app')
+    closeApp: () => ipcRenderer.invoke('close-app'),
+    updateTabMeta: (data) => ipcRenderer.invoke('update-tab-meta', data)
 });

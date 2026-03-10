@@ -162,6 +162,12 @@
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
                   </svg></button>
+                <button id="editMetaBtn" class="action-btn" title="Edit Metadata"><svg class="svg-icon"
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg></button>
                 <button id="deleteBtn" class="action-btn delete" title="Delete Tab"><svg class="svg-icon"
                     xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -231,6 +237,34 @@
         </div>
       </div>
     </footer>
+  </div>
+
+  <!-- Settings Modal (Hidden by default) -->
+  <div id="editMetaModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><svg class="svg-icon" style="margin-right: 6px; vertical-align: text-bottom;"
+            xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>Edit Metadata</h2>
+        <span class="close-modal" id="closeEditMetaBtn">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <label>Artist Name</label>
+          <input type="text" id="metaArtistInput"
+            style="width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: var(--text-main); border-radius: 4px;" />
+        </div>
+        <div class="setting-group">
+          <label>Song Title</label>
+          <input type="text" id="metaSongInput"
+            style="width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: var(--text-main); border-radius: 4px;" />
+        </div>
+        <button id="saveMetaBtn" class="primary-btn" style="width: 100%; margin-top: 10px;">Save Metadata</button>
+      </div>
+    </div>
   </div>
 
   <!-- Settings Modal (Hidden by default) -->

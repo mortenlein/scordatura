@@ -21,8 +21,16 @@ const artistNameEl = document.getElementById('artistName');
 
 const starBtn = document.getElementById('starBtn');
 const editBtn = document.getElementById('editBtn');
+const editMetaBtn = document.getElementById('editMetaBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const chordDiagrams = document.getElementById('chordDiagrams');
+
+// Edit Meta Modal
+const editMetaModal = document.getElementById('editMetaModal');
+const closeEditMetaBtn = document.getElementById('closeEditMetaBtn');
+const metaArtistInput = document.getElementById('metaArtistInput');
+const metaSongInput = document.getElementById('metaSongInput');
+const saveMetaBtn = document.getElementById('saveMetaBtn');
 
 // Window Controls
 const minBtn = document.getElementById('minBtn');
@@ -722,6 +730,52 @@ starBtn.addEventListener('click', async () => {
     isStarred = !isStarred;
     updateStarButtonState();
     await saveCurrentTab();
+});
+
+// --- EDIT METADATA ---
+editMetaBtn.addEventListener('click', () => {
+    if (!currentTabMetadata) return;
+    metaArtistInput.value = currentTabMetadata.artist;
+    metaSongInput.value = currentTabMetadata.song;
+    editMetaModal.classList.remove('hidden');
+});
+
+closeEditMetaBtn.addEventListener('click', () => {
+    editMetaModal.classList.add('hidden');
+});
+
+editMetaModal.addEventListener('click', (e) => {
+    if (e.target === editMetaModal) editMetaModal.classList.add('hidden');
+});
+
+saveMetaBtn.addEventListener('click', async () => {
+    if (!currentTabMetadata) return;
+    const newArtist = metaArtistInput.value.trim();
+    const newSong = metaSongInput.value.trim();
+    if (!newArtist || !newSong) return;
+
+    try {
+        const result = await window.api.updateTabMeta({
+            oldId: currentTabMetadata.id,
+            newArtist,
+            newSong
+        });
+
+        // Update in-memory metadata
+        currentTabMetadata.artist = newArtist;
+        currentTabMetadata.song = newSong;
+        currentTabMetadata.id = result.newId;
+
+        // Update the song header display
+        songTitleEl.textContent = newSong;
+        artistNameEl.textContent = newArtist;
+
+        editMetaModal.classList.add('hidden');
+        await refreshLibrary();
+    } catch (e) {
+        errorMessage.textContent = 'Failed to update metadata: ' + e.message;
+        errorMessage.classList.remove('hidden');
+    }
 });
 
 // Window Control Listeners

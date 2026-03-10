@@ -373,6 +373,52 @@ ipcMain.handle('save-tab', async (event, { artist, song, text, transpose, isStar
     }
 });
 
+// IPC Handler for updating tab metadata (artist/song rename)
+ipcMain.handle('update-tab-meta', async (event, { oldId, newArtist, newSong }) => {
+    try {
+        const oldPath = path.join(TABS_DIR, oldId);
+        if (!fs.existsSync(oldPath)) {
+            throw new Error('Original tab file not found');
+        }
+
+        // Read existing data
+        const rawData = fs.readFileSync(oldPath, 'utf-8');
+        const data = JSON.parse(rawData);
+
+        // Update metadata
+        data.artist = newArtist;
+        data.song = newSong;
+        data.savedAt = Date.now();
+
+        // Determine new path
+        const safeArtist = sanitize(newArtist) || 'unknown_artist';
+        const safeSong = sanitize(newSong) || 'unknown_song';
+        const newDir = path.join(TABS_DIR, safeArtist);
+        if (!fs.existsSync(newDir)) {
+            fs.mkdirSync(newDir, { recursive: true });
+        }
+        const newPath = path.join(newDir, safeSong + '.json');
+
+        // Write to new location
+        fs.writeFileSync(newPath, JSON.stringify(data, null, 2), 'utf-8');
+
+        // If the path changed, delete the old file and clean up empty directories
+        if (path.resolve(oldPath) !== path.resolve(newPath)) {
+            fs.unlinkSync(oldPath);
+            const oldDir = path.dirname(oldPath);
+            const remaining = fs.readdirSync(oldDir).filter(f => f.endsWith('.json'));
+            if (remaining.length === 0) {
+                fs.rmdirSync(oldDir);
+            }
+        }
+
+        return { newId: safeArtist + '/' + safeSong + '.json' };
+    } catch (e) {
+        console.error("Failed to update tab metadata:", e);
+        throw new Error('Failed to update metadata: ' + e.message);
+    }
+});
+
 // IPC Handler for fetching the whole library tree
 ipcMain.handle('get-library', async () => {
     try {
