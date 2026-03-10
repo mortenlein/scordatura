@@ -436,6 +436,12 @@ async function refreshLibrary() {
             const group = document.createElement('div');
             group.className = 'artist-group';
 
+            // Restore collapsed state from localStorage
+            const collapsedArtists = JSON.parse(localStorage.getItem('collapsedArtists') || '[]');
+            if (collapsedArtists.includes(artist.artistId)) {
+                group.classList.add('collapsed');
+            }
+
             const artistHeader = document.createElement('div');
             artistHeader.className = 'artist-header';
             artistHeader.style.cursor = 'pointer';
@@ -486,6 +492,15 @@ async function refreshLibrary() {
             artistHeader.addEventListener('click', (e) => {
                 if (e.target.closest('.delete-artist-btn')) return;
                 group.classList.toggle('collapsed');
+                // Persist collapsed state
+                const stored = JSON.parse(localStorage.getItem('collapsedArtists') || '[]');
+                if (group.classList.contains('collapsed')) {
+                    if (!stored.includes(artist.artistId)) stored.push(artist.artistId);
+                } else {
+                    const idx = stored.indexOf(artist.artistId);
+                    if (idx > -1) stored.splice(idx, 1);
+                }
+                localStorage.setItem('collapsedArtists', JSON.stringify(stored));
             });
 
             artist.songs.forEach(song => {
@@ -612,6 +627,16 @@ function appendTabToSidebar(artistName, songName, id, isStarred, animate) {
         artistHeader.addEventListener('click', (e) => {
             if (e.target.closest('.delete-artist-btn')) return;
             artistGroup.classList.toggle('collapsed');
+            // Persist collapsed state
+            const stored = JSON.parse(localStorage.getItem('collapsedArtists') || '[]');
+            const artistKey = artistName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            if (artistGroup.classList.contains('collapsed')) {
+                if (!stored.includes(artistKey)) stored.push(artistKey);
+            } else {
+                const idx = stored.indexOf(artistKey);
+                if (idx > -1) stored.splice(idx, 1);
+            }
+            localStorage.setItem('collapsedArtists', JSON.stringify(stored));
         });
 
         libraryContainer.appendChild(artistGroup);
