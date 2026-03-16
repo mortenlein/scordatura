@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('api', {
     minimizeApp: () => ipcRenderer.invoke('minimize-app'),
     maximizeApp: () => ipcRenderer.invoke('maximize-app'),
     closeApp: () => ipcRenderer.invoke('close-app'),
-    updateTabMeta: (data) => ipcRenderer.invoke('update-tab-meta', data)
+    updateTabMeta: (data) => ipcRenderer.invoke('update-tab-meta', data),
+    onProtocolUrl: (callback) => ipcRenderer.on('protocol-url', (event, url) => callback(url))
 });

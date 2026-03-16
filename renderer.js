@@ -1428,3 +1428,10 @@ urlInput.addEventListener('keypress', (e) => {
         fetchBtn.click();
     }
 });
+
+// Handle incoming Scordatura protocol links
+window.api.onProtocolUrl((url) => {
+    console.log('Received protocol URL:', url);
+    urlInput.value = url;
+    fetchBtn.click();
+});

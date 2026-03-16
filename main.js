@@ -3,6 +3,37 @@ const path = require('path');
 const fs = require('fs');
 const cheerio = require('cheerio');
 
+// Register the custom protocol
+if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+        app.setAsDefaultProtocolClient('scordatura', process.execPath, [path.resolve(process.argv[1])]);
+    }
+} else {
+    app.setAsDefaultProtocolClient('scordatura');
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    app.quit();
+    process.exit(0);
+} else {
+    app.on('second-instance', (event, commandLine) => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.setFocusable(true);
+            mainWindow.focus();
+            mainWindow.show();
+
+            // commandLine is an array of the second instance’s arguments
+            const url = commandLine.find(arg => arg.startsWith('scordatura://'));
+            if (url) {
+                handleProtocolUrl(url);
+            }
+        }
+    });
+}
+
 // We will store tabs in the user data folder under "tabs"
 const TABS_DIR = path.join(app.getPath('userData'), 'tabs');
 if (!fs.existsSync(TABS_DIR)) {
@@ -53,6 +84,15 @@ function createWindow() {
     mainWindow.loadFile('index.html');
 }
 
+function handleProtocolUrl(fullUrl) {
+    if (!fullUrl) return;
+    // Protocol links look like scordatura://https://...
+    const urlToScrape = fullUrl.replace('scordatura://', '');
+    if (urlToScrape && mainWindow) {
+        mainWindow.webContents.send('protocol-url', urlToScrape);
+    }
+}
+
 app.whenReady().then(() => {
     // Spoof the Origin and Referer headers for YouTube iframes to prevent Error 153
     session.defaultSession.webRequest.onBeforeSendHeaders(
@@ -65,6 +105,15 @@ app.whenReady().then(() => {
     );
 
     createWindow();
+
+    // Check if we were launched with a protocol link
+    const protocolUrl = process.argv.find(arg => arg.startsWith('scordatura://'));
+    if (protocolUrl) {
+        mainWindow.webContents.once('did-finish-load', () => {
+            // Give it a tiny bit more time to ensure all listeners are attached
+            setTimeout(() => handleProtocolUrl(protocolUrl), 500);
+        });
+    }
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
