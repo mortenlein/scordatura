@@ -22,35 +22,59 @@ const syncManager = new GDriveSync({ client_id: CLIENT_ID, client_secret: CLIENT
 let mainWindow;
 
 function initializeIpc() {
+    // Auth & Sync
     ipcMain.removeHandler('initiate-auth');
     ipcMain.handle('initiate-auth', async () => await syncManager.authenticate());
-
     ipcMain.removeHandler('sync-library');
     ipcMain.handle('sync-library', async () => await syncManager.sync());
-    
     ipcMain.removeHandler('has-token');
     ipcMain.handle('has-token', () => fs.existsSync(TOKEN_PATH));
 
+    // UI Controls
     ipcMain.removeHandler('minimize-app');
     ipcMain.handle('minimize-app', () => mainWindow?.minimize());
-
     ipcMain.removeHandler('maximize-app');
     ipcMain.handle('maximize-app', () => mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize());
-
     ipcMain.removeHandler('close-app');
     ipcMain.handle('close-app', () => mainWindow?.close());
     
-    ipcMain.removeHandler('get-chord-db');
-    ipcMain.handle('get-chord-db', () => {
-        const dbPath = path.join(__dirname, 'chords.json');
-        return fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, 'utf-8')) : null;
+    // Core Library Logic
+    ipcMain.removeHandler('get-library');
+    ipcMain.handle('get-library', async () => {
+        const library = [];
+        const starred = [];
+        if (!fs.existsSync(TABS_DIR)) return { library: [], starred: [] };
+
+        const artistDirs = fs.readdirSync(TABS_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
+        for (const artistDir of artistDirs) {
+            const dPath = path.join(TABS_DIR, artistDir.name);
+            const songFiles = fs.readdirSync(dPath).filter(f => f.endsWith('.json'));
+            const songs = songFiles.map(songFile => {
+                try {
+                    const data = JSON.parse(fs.readFileSync(path.join(dPath, songFile), 'utf-8'));
+                    if (data.isDeleted) return null;
+                    const songObj = { id: `${artistDir.name}/${songFile}`, artist: data.artist, song: data.song, transpose: data.transpose, isStarred: data.isStarred };
+                    if (songObj.isStarred) starred.push(songObj);
+                    return songObj;
+                } catch(e) { return null; }
+            }).filter(Boolean);
+            if (songs.length > 0) library.push({ artistId: artistDir.name, artistName: songs[0].artist, songs });
+        }
+        return { library, starred };
     });
 
-    ipcMain.removeHandler('get-settings');
-    ipcMain.handle('get-settings', () => fs.existsSync(SETTINGS_FILE) ? JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) : {});
+    ipcMain.removeHandler('scrape-url');
+    // Scraper logic is called via preload.js in original
     
-    ipcMain.removeHandler('save-settings');
-    ipcMain.handle('save-settings', (event, settings) => fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8'));
+    ipcMain.removeHandler('save-tab');
+    ipcMain.handle('save-tab', (event, tab) => {
+        const safeArtist = tab.artist.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const safeSong = tab.song.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const artistDir = path.join(TABS_DIR, safeArtist);
+        if (!fs.existsSync(artistDir)) fs.mkdirSync(artistDir, { recursive: true });
+        fs.writeFileSync(path.join(artistDir, safeSong + '.json'), JSON.stringify(tab, null, 2));
+        return true;
+    });
 
     ipcMain.removeHandler('load-tab');
     ipcMain.handle('load-tab', (event, id) => JSON.parse(fs.readFileSync(path.join(TABS_DIR, id), 'utf-8')));
@@ -66,6 +90,18 @@ function initializeIpc() {
             return true;
         }
         return false;
+    });
+    
+    ipcMain.removeHandler('get-settings');
+    ipcMain.handle('get-settings', () => fs.existsSync(SETTINGS_FILE) ? JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) : {});
+    
+    ipcMain.removeHandler('save-settings');
+    ipcMain.handle('save-settings', (event, settings) => fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8'));
+
+    ipcMain.removeHandler('get-chord-db');
+    ipcMain.handle('get-chord-db', () => {
+        const dbPath = path.join(__dirname, 'chords.json');
+        return fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, 'utf-8')) : null;
     });
 }
 
