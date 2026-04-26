@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const cheerio = require('cheerio');
 
+// OAuth 2.0 Client ID for Scordatura Desktop (Public Identifier - Safe for Git)
+const CLIENT_ID = '441422462550-ikj32d57kuojel24hogmfnkdsvc6b7u7.apps.googleusercontent.com';
+
 // Register the custom protocol
 if (process.defaultApp) {
     if (process.argv.length >= 2) {
@@ -25,7 +28,6 @@ if (!gotTheLock) {
             mainWindow.focus();
             mainWindow.show();
 
-            // commandLine is an array of the second instance’s arguments
             const url = commandLine.find(arg => arg.startsWith('scordatura://'));
             if (url) {
                 handleProtocolUrl(url);
@@ -34,23 +36,29 @@ if (!gotTheLock) {
     });
 }
 
-// We will store tabs in the user data folder under "tabs"
 const TABS_DIR = path.join(app.getPath('userData'), 'tabs');
+const GDriveSync = require('./gdrive');
+const TOKEN_PATH = path.join(app.getPath('userData'), 'token.json');
+
 if (!fs.existsSync(TABS_DIR)) {
     fs.mkdirSync(TABS_DIR, { recursive: true });
 }
+
+// Initializing sync manager without a secret - secure PKCE standard
+const syncManager = new GDriveSync({
+    client_id: CLIENT_ID
+}, app.getPath('userData'));
 
 let mainWindow;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1400, // Widened slightly to accommodate the sidebar
+        width: 1400,
         height: 800,
-        show: false, // Don't show immediately to prevent focus stealing
-        focusable: false, // Start completely unfocused so OS doesn't yank foreground
+        show: false,
+        focusable: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
-            // Keep Node integration disabled for security on the renderer
             nodeIntegration: false,
             contextIsolation: true
         },
@@ -59,14 +67,11 @@ function createWindow() {
         backgroundColor: '#111111'
     });
 
-    // Show the window without stealing focus once it's completely ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.showInactive();
-        // Restore focusability so the user can actually use it later
         setTimeout(() => mainWindow.setFocusable(true), 500);
     });
 
-    // Custom Window Control IPCs
     ipcMain.handle('minimize-app', () => {
         mainWindow.minimize();
     });
@@ -81,12 +86,22 @@ function createWindow() {
         mainWindow.close();
     });
 
+    ipcMain.handle('sync-library', async () => {
+        try {
+            return await syncManager.sync();
+        } catch (e) {
+            console.error("Sync Error:", e);
+            throw e;
+        }
+    });
+
+    ipcMain.handle('has-token', () => fs.existsSync(TOKEN_PATH));
+
     mainWindow.loadFile('index.html');
 }
 
 function handleProtocolUrl(fullUrl) {
     if (!fullUrl) return;
-    // Protocol links look like scordatura://https://...
     const urlToScrape = fullUrl.replace('scordatura://', '');
     if (urlToScrape && mainWindow) {
         mainWindow.webContents.send('protocol-url', urlToScrape);
@@ -94,7 +109,6 @@ function handleProtocolUrl(fullUrl) {
 }
 
 app.whenReady().then(() => {
-    // Spoof the Origin and Referer headers for YouTube iframes to prevent Error 153
     session.defaultSession.webRequest.onBeforeSendHeaders(
         { urls: ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"] },
         (details, callback) => {
@@ -106,11 +120,9 @@ app.whenReady().then(() => {
 
     createWindow();
 
-    // Check if we were launched with a protocol link
     const protocolUrl = process.argv.find(arg => arg.startsWith('scordatura://'));
     if (protocolUrl) {
         mainWindow.webContents.once('did-finish-load', () => {
-            // Give it a tiny bit more time to ensure all listeners are attached
             setTimeout(() => handleProtocolUrl(protocolUrl), 500);
         });
     }
@@ -124,36 +136,29 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// Helper string function for safe filenames
 const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
-// IPC Handler for scraping
 ipcMain.handle('scrape-url', async (event, url) => {
     if (!url || (!url.includes('ultimate-guitar.com') && !url.includes('guitaretab.com'))) {
         throw new Error('Please provide a valid ultimate-guitar.com or guitaretab.com URL');
     }
 
-    // Create a hidden window to load the page
     const scraperWindow = new BrowserWindow({
         show: false,
         webPreferences: {
-            offscreen: true // further hiding it
+            offscreen: true
         }
     });
 
     try {
-        // Intercept Artist Batch URLs
         if (url.includes('/artist/')) {
             let page = 1;
             let songs = {};
             let artistName = 'Unknown Artist';
             let seenUrls = new Set();
 
-            // Extract artist slug from URL to filter out trending/recommended tabs
-            // URL format: /artist/tom_odell_39037 -> slug: tom-odell
             const artistMatch = url.match(/\/artist\/([a-z0-9_]+?)_\d+\/?$/);
             const artistSlug = artistMatch ? artistMatch[1].replace(/_/g, '-') : null;
-            console.log(`\nArtist slug: ${artistSlug}`);
 
             while (true) {
                 let currentUrl = url;
@@ -165,7 +170,6 @@ ipcMain.handle('scrape-url', async (event, url) => {
                     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
                 });
 
-                // Wait for React to render the table and dump HTML
                 const html = await scraperWindow.webContents.executeJavaScript(`
                     new Promise(resolve => {
                         setTimeout(() => resolve(document.documentElement.innerHTML), 3000);
@@ -178,7 +182,6 @@ ipcMain.handle('scrape-url', async (event, url) => {
                 $('a[href^="https://tabs.ultimate-guitar.com/tab/"]').each((i, el) => {
                     const tabUrl = $(el).attr('href');
                     if (!tabUrl.includes('pro') && !tabUrl.includes('official') && tabUrl.split('/').length > 5) {
-                        // Filter by artist slug to exclude trending/recommended tabs from other artists
                         if (artistSlug) {
                             const tabPath = tabUrl.replace('https://tabs.ultimate-guitar.com/tab/', '');
                             const tabArtistSlug = tabPath.split('/')[0];
@@ -207,7 +210,6 @@ ipcMain.handle('scrape-url', async (event, url) => {
                             }
 
                             let name = $(el).text().trim();
-                            // Strip version suffixes like "(ver 2)", "(ver 3)" so all versions group under one name
                             name = name.replace(/\s*\(ver\s*\d+\)\s*$/i, '').trim();
                             if (!songs[name]) songs[name] = [];
                             songs[name].push({ url: tabUrl, type, votes });
@@ -218,17 +220,14 @@ ipcMain.handle('scrape-url', async (event, url) => {
 
                 if (page === 1) {
                     artistName = $('h1').first().text().trim() || 'Unknown Artist';
-                    artistName = artistName.replace(/ tabs$/i, ''); // Strip trailing " tabs"
+                    artistName = artistName.replace(/ tabs$/i, '');
                 }
-
-                console.log(`\nPage ${page} found ${newTabsThisPage} new tabs.`);
 
                 if (newTabsThisPage === 0) {
                     break;
                 }
 
                 page++;
-                // Artificial delay between pages to avoid aggroing UG
                 await new Promise(r => setTimeout(r, 1500));
             }
 
@@ -243,19 +242,13 @@ ipcMain.handle('scrape-url', async (event, url) => {
                 bestTabs.push(best);
             });
 
-            console.log(`\nReturning: ${bestTabs.length} tabs for ${artistName}`);
-
             return { isBatch: true, artist: artistName, tabs: bestTabs };
         }
 
-        // --- Standard Single Tab Scraping ---
-        // Navigate to the URL
         await scraperWindow.loadURL(url, {
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         });
 
-        // Wait a little bit for dynamic content to load if needed
-        // We execute javascript on the page to extract the text AND artist/song
         const result = await scraperWindow.webContents.executeJavaScript(`
       new Promise((resolve) => {
         setTimeout(() => {
@@ -266,12 +259,9 @@ ipcMain.handle('scrape-url', async (event, url) => {
           const isGuitareTab = window.location.hostname.includes('guitaretab.com');
 
           if (isGuitareTab) {
-              // Parse Artist and Song from specific GuitareTab header:
-              // <h1 class="gt-hero__title">Lana Del Rey<span> - Mariners Apartment Complex chords </span></h1>
               try {
                   const heroTitle = document.querySelector('h1.gt-hero__title');
                   if (heroTitle) {
-                      // The artist is the direct text node of the h1 (before the span)
                       const artistText = Array.from(heroTitle.childNodes)
                           .filter(node => node.nodeType === Node.TEXT_NODE)
                           .map(node => node.textContent.trim())
@@ -281,21 +271,10 @@ ipcMain.handle('scrape-url', async (event, url) => {
 
                       const spanNode = heroTitle.querySelector('span');
                       if (spanNode) {
-                          let songText = spanNode.innerText.replace(/^[\\s-–—]+/, '').trim(); // Remove leading dashes
+                          let songText = spanNode.innerText.replace(/^[\\s-–—]+/, '').trim();
                           songText = songText.replace(/ chords?$/i, '').trim();
                           if (songText) song = songText;
                       }
-                  } else {
-                     // Fallback to title
-                     let titleStr = document.title;
-                     if (titleStr.includes(' chords')) {
-                         titleStr = titleStr.split(' chords')[0];
-                         const parts = titleStr.split(/ - | – /);
-                         if (parts.length >= 2) {
-                             artist = parts[0].trim();
-                             song = parts.slice(1).join(' - ').trim();
-                         }
-                     }
                   }
               } catch(e) {}
               
@@ -307,39 +286,15 @@ ipcMain.handle('scrape-url', async (event, url) => {
               return;
           }
 
-          // Handle ultimate-guitar.com below...
           try {
              const pathParts = window.location.pathname.split('/').filter(Boolean);
              if (pathParts.length >= 3 && pathParts[0] === 'tab') {
-                 // Format: eagles -> Eagles
                  artist = pathParts[1].replace(/-/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());
-                 
-                 // Format: hotel-california-chords-46190 -> Hotel California
                  let songPart = pathParts[2];
                  songPart = songPart.replace(/-(chords|tabs|bass|ukulele|drums|pro|power|official)-?\\d+$/, '');
                  song = songPart.replace(/-/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());
-             } else if (pathParts.length === 2 && pathParts[0] === 'tab' && /^\\d+$/.test(pathParts[1])) {
-                 // Format: /tab/1011988
-                 // Direct ID URL. Let the js-store or document.title extractors handle it completely.
-                 artist = "Unknown Artist";
              }
           } catch(e) {}
-
-          if (artist === "Unknown Artist") {
-              const titleMatch = document.title.match(/(.*?)\s+(?:CHORDS|TAB|BASS|PRO|UKULELE|POWER)(?:\s+\(ver\s+\d+\))?\s+by\s+(.*?)\s+@/i);
-              
-              if (titleMatch) {
-                  song = titleMatch[1].trim();
-                  artist = titleMatch[2].trim();
-              } else {
-                  const bySplit = document.title.split(/\s+by\s+/i);
-                  if (bySplit.length >= 2) {
-                     song = bySplit[0].trim();
-                     artist = bySplit[1].split('@')[0].trim();
-                  }
-              }
-              artist = artist.replace(/tabs?$/i, '').trim();
-          }
 
           const jsStore = document.querySelector('.js-store');
           if (jsStore) {
@@ -374,13 +329,12 @@ ipcMain.handle('scrape-url', async (event, url) => {
           }
 
           resolve({ text, artist, song });
-        }, 3000); // 3 seconds to let React render
+        }, 3000);
       });
     `);
 
         scraperWindow.close();
 
-        // Safety check just in case executeJavaScript failed unexpectedly
         if (!result || typeof result === 'string') {
             throw new Error(result || "Extraction failed");
         }
@@ -393,8 +347,7 @@ ipcMain.handle('scrape-url', async (event, url) => {
     }
 });
 
-// IPC Handler for saving tab
-ipcMain.handle('save-tab', async (event, { artist, song, text, transpose, isStarred }) => {
+ipcMain.handle('save-tab', async (event, { artist, song, text, transpose, isStarred, isDeleted }) => {
     try {
         const safeArtist = sanitize(artist) || 'unknown_artist';
         const safeSong = sanitize(song) || 'unknown_song';
@@ -406,69 +359,24 @@ ipcMain.handle('save-tab', async (event, { artist, song, text, transpose, isStar
 
         const filePath = path.join(artistDir, safeSong + '.json');
         const dataToSave = {
+            id: safeArtist + '_' + safeSong,
+            artistId: safeArtist,
             artist,
             song,
             text,
             transpose: transpose || 0,
             isStarred: isStarred || false,
+            isDeleted: isDeleted || false,
             savedAt: Date.now()
         };
 
         fs.writeFileSync(filePath, JSON.stringify(dataToSave, null, 2), 'utf-8');
         return true;
     } catch (e) {
-        console.error("Failed to save:", e);
         return false;
     }
 });
 
-// IPC Handler for updating tab metadata (artist/song rename)
-ipcMain.handle('update-tab-meta', async (event, { oldId, newArtist, newSong }) => {
-    try {
-        const oldPath = path.join(TABS_DIR, oldId);
-        if (!fs.existsSync(oldPath)) {
-            throw new Error('Original tab file not found');
-        }
-
-        // Read existing data
-        const rawData = fs.readFileSync(oldPath, 'utf-8');
-        const data = JSON.parse(rawData);
-
-        // Update metadata
-        data.artist = newArtist;
-        data.song = newSong;
-        data.savedAt = Date.now();
-
-        // Determine new path
-        const safeArtist = sanitize(newArtist) || 'unknown_artist';
-        const safeSong = sanitize(newSong) || 'unknown_song';
-        const newDir = path.join(TABS_DIR, safeArtist);
-        if (!fs.existsSync(newDir)) {
-            fs.mkdirSync(newDir, { recursive: true });
-        }
-        const newPath = path.join(newDir, safeSong + '.json');
-
-        // Write to new location
-        fs.writeFileSync(newPath, JSON.stringify(data, null, 2), 'utf-8');
-
-        // If the path changed, delete the old file and clean up empty directories
-        if (path.resolve(oldPath) !== path.resolve(newPath)) {
-            fs.unlinkSync(oldPath);
-            const oldDir = path.dirname(oldPath);
-            const remaining = fs.readdirSync(oldDir).filter(f => f.endsWith('.json'));
-            if (remaining.length === 0) {
-                fs.rmdirSync(oldDir);
-            }
-        }
-
-        return { newId: safeArtist + '/' + safeSong + '.json' };
-    } catch (e) {
-        console.error("Failed to update tab metadata:", e);
-        throw new Error('Failed to update metadata: ' + e.message);
-    }
-});
-
-// IPC Handler for fetching the whole library tree
 ipcMain.handle('get-library', async () => {
     try {
         if (!fs.existsSync(TABS_DIR)) return { library: [], starred: [] };
@@ -495,6 +403,8 @@ ipcMain.handle('get-library', async () => {
                     return null;
                 }
 
+                if (data.isDeleted) return null;
+
                 const songObj = {
                     id: artistDir.name + '/' + songFile,
                     artist: data.artist || artistDir.name,
@@ -513,24 +423,19 @@ ipcMain.handle('get-library', async () => {
             if (songs.length > 0) {
                 library.push({
                     artistId: artistDir.name,
-                    // Use the pretty artist name from the first song rather than sanitized folder name
                     artistName: songs[0].artist || artistDir.name,
                     songs: songs
                 });
             }
         }
 
-        // Sort starred songs alphabetically too
         starred.sort((a, b) => a.song.localeCompare(b.song));
-
         return { library, starred };
     } catch (e) {
-        console.error("Failed to get library:", e);
         return { library: [], starred: [] };
     }
 });
 
-// IPC Handler for loading a specific tab
 ipcMain.handle('load-tab', async (event, id) => {
     try {
         const filePath = path.join(TABS_DIR, id);
@@ -543,29 +448,29 @@ ipcMain.handle('load-tab', async (event, id) => {
     }
 });
 
-// IPC Handler for deleting a tab
 ipcMain.handle('delete-tab', async (event, id) => {
     try {
         const filePath = path.join(TABS_DIR, id);
         if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-
-            // Cleanup empty directory if no more songs exist for that artist
-            const dirPath = path.dirname(filePath);
-            const remaining = fs.readdirSync(dirPath);
-            if (remaining.length === 0) {
-                fs.rmdirSync(dirPath);
-            }
+            const content = fs.readFileSync(filePath, 'utf-8');
+            const data = JSON.parse(content);
+            data.isDeleted = true;
+            data.savedAt = Date.now();
+            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
             return true;
         }
         return false;
     } catch (e) {
-        console.error("Failed to delete tab:", e);
         return false;
     }
 });
 
-// IPC Handler for deleting all tabs by an artist
+ipcMain.handle('sync-library', async () => {
+    return await syncManager.sync();
+});
+
+ipcMain.handle('has-token', () => fs.existsSync(TOKEN_PATH));
+
 ipcMain.handle('delete-artist', async (event, artistFolderId) => {
     try {
         const artistDir = path.join(TABS_DIR, artistFolderId);
@@ -575,36 +480,31 @@ ipcMain.handle('delete-artist', async (event, artistFolderId) => {
         }
         return false;
     } catch (e) {
-        console.error("Failed to delete artist:", e);
         return false;
     }
 });
 
-// IPC Handler for reading settings
 const SETTINGS_FILE = path.join(TABS_DIR, 'settings.json');
 ipcMain.handle('get-settings', async () => {
     try {
         if (fs.existsSync(SETTINGS_FILE)) {
             return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
         }
-        return {}; // Return empty to allow frontend defaults
+        return {};
     } catch (e) {
         return {};
     }
 });
 
-// IPC Handler for saving settings
 ipcMain.handle('save-settings', async (event, settingsObj) => {
     try {
         fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settingsObj, null, 2), 'utf-8');
         return true;
     } catch (e) {
-        console.error("Failed to save settings:", e);
         return false;
     }
 });
 
-// IPC Handler for reading the static chord dictionary
 ipcMain.handle('get-chord-db', async () => {
     try {
         const dbPath = path.join(__dirname, 'chords.json');
@@ -613,7 +513,6 @@ ipcMain.handle('get-chord-db', async () => {
         }
         return null;
     } catch (e) {
-        console.error("Failed to load chords.json:", e);
         return null;
     }
 });
