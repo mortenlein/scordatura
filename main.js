@@ -26,7 +26,13 @@ function initializeIpc() {
     ipcMain.removeHandler('initiate-auth');
     ipcMain.handle('initiate-auth', async () => await syncManager.authenticate());
     ipcMain.removeHandler('sync-library');
-    ipcMain.handle('sync-library', async () => await syncManager.sync());
+    ipcMain.handle('sync-library', async (event) => {
+        return await syncManager.sync((msg, pct) => {
+            if (mainWindow) {
+                mainWindow.webContents.send('sync-progress', msg, pct);
+            }
+        });
+    });
     ipcMain.removeHandler('has-token');
     ipcMain.handle('has-token', () => fs.existsSync(TOKEN_PATH));
 

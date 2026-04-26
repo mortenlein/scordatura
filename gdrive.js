@@ -254,13 +254,16 @@ class GDriveSync {
             this.log(`Local state: ${localTabs.length} tabs`);
 
             // Download updates
+            let dCount = 0;
             for (const remoteFile of remoteFiles) {
+                if (onProgress && remoteFiles.length > 0) onProgress(`Checking downloads (${dCount}/${remoteFiles.length})...`, 30 + Math.round((dCount / remoteFiles.length) * 35));
                 // Find matching local tab based on Google Drive file name (which we map to 'artist_id--song_id.json')
                 const localTab = localTabs.find(t => (t.id || '').replace('/', '--') === remoteFile.name);
                 const remoteModified = new Date(remoteFile.modifiedTime).getTime();
 
                 // Buffer of 2000ms to account for filesystem modification time precision
                 if (!localTab || remoteModified > localTab._mtime + 2000) {
+                    if (onProgress) onProgress(`Downloading: ${remoteFile.name}`, 30 + Math.round((dCount / remoteFiles.length) * 35));
                     this.log(`Downloading: ${remoteFile.name}`);
                     const file = await drive.files.get({ fileId: remoteFile.id, alt: 'media' });
                     const syncedTab = file.data;
@@ -284,12 +287,15 @@ class GDriveSync {
             }
 
             // Upload updates
+            let uCount = 0;
             for (const tab of localTabs) {
+                if (onProgress && localTabs.length > 0) onProgress(`Checking uploads (${uCount}/${localTabs.length})...`, 65 + Math.round((uCount / localTabs.length) * 30));
                 const fileName = (tab.id || '').replace('/', '--');
                 const remoteFile = remoteFiles.find(f => f.name === fileName);
                 const remoteModified = remoteFile ? new Date(remoteFile.modifiedTime).getTime() : 0;
 
                 if (!remoteFile || tab._mtime > remoteModified + 2000) {
+                    if (onProgress) onProgress(`Uploading: ${tab.song}`, 65 + Math.round((uCount / localTabs.length) * 30));
                     this.log(`Uploading: ${tab.song}`);
                     
                     const uploadData = { ...tab };

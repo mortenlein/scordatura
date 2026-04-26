@@ -1474,6 +1474,10 @@ async function triggerSync() {
         await updateSyncButtonState();
     } finally {
         syncBtn.classList.remove('syncing');
+        setTimeout(() => {
+            scraperProgressSection.classList.add('hidden');
+            scraperProgressSection.style.display = 'none';
+        }, 1500);
     }
 }
 
