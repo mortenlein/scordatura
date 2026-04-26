@@ -14,5 +14,8 @@ contextBridge.exposeInMainWorld('api', {
     maximizeApp: () => ipcRenderer.invoke('maximize-app'),
     closeApp: () => ipcRenderer.invoke('close-app'),
     updateTabMeta: (data) => ipcRenderer.invoke('update-tab-meta', data),
-    onProtocolUrl: (callback) => ipcRenderer.on('protocol-url', (event, url) => callback(url))
+    onProtocolUrl: (callback) => ipcRenderer.on('protocol-url', (event, url) => callback(url)),
+    hasToken: () => ipcRenderer.invoke('has-token'),
+    initiateAuth: () => ipcRenderer.invoke('initiate-auth'),
+    syncLibrary: () => ipcRenderer.invoke('sync-library')
 });

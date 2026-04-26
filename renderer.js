@@ -1457,12 +1457,14 @@ syncBtn.addEventListener('click', async () => {
 
 async function triggerSync() {
     syncBtn.classList.add('syncing');
-    const isInitialLogin = !(await window.api.hasToken());
     
     try {
-        if (isInitialLogin && syncBtnText) {
+        const hasToken = await window.api.hasToken();
+        if (!hasToken) {
             syncBtnText.textContent = 'Authenticating...';
+            await window.api.initiateAuth();
         }
+        
         await window.api.syncLibrary();
         await updateSyncButtonState();
         await refreshLibrary();

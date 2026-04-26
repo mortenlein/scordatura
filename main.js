@@ -22,6 +22,9 @@ const syncManager = new GDriveSync({ client_id: CLIENT_ID, client_secret: CLIENT
 let mainWindow;
 
 function initializeIpc() {
+    ipcMain.removeHandler('initiate-auth');
+    ipcMain.handle('initiate-auth', async () => await syncManager.authenticate());
+
     ipcMain.removeHandler('sync-library');
     ipcMain.handle('sync-library', async () => await syncManager.sync());
     
