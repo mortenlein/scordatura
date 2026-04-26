@@ -36,6 +36,10 @@
     "electron-builder": "^26.8.1"
   },
   "dependencies": {
-    "cheerio": "^1.2.0"
+    "cheerio": "^1.2.0",
+    "googleapis": "^122.0.0",
+    "google-auth-library": "^9.0.0",
+    "open": "^8.4.2",
+    "dotenv": "^16.4.5"
   }
 }
