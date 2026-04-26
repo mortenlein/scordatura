@@ -36,6 +36,10 @@ function migrateExistingTabs() {
                 if (typeof data.savedAt !== 'number') { data.savedAt = fs.statSync(filePath).mtimeMs; modified = true; }
                 if (typeof data.transpose !== 'number') { data.transpose = 0; modified = true; }
                 if (typeof data.isStarred !== 'boolean') { data.isStarred = false; modified = true; }
+                if (!data.tuning) { 
+                    data.tuning = { id: 'standard', name: 'Standard', notes: ['E', 'A', 'D', 'G', 'B', 'E'] }; 
+                    modified = true; 
+                }
                 
                 if (modified) {
                     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
