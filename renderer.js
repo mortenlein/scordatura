@@ -167,7 +167,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Load settings
     const savedSettings = await window.api.getSettings();
+    console.log('Renderer: Loaded Settings from main:', savedSettings);
     globalSettings = { ...globalSettings, ...savedSettings };
+    console.log('Renderer: Merged Settings:', globalSettings);
     if (!globalSettings.starredTunings) globalSettings.starredTunings = [];
     if (!globalSettings.customTunings) globalSettings.customTunings = [];
     if (globalSettings.showChords === undefined) globalSettings.showChords = true;
@@ -404,6 +406,9 @@ addTuningBtn.addEventListener('click', () => {
 
     globalSettings.activeTuningId = id; // auto select
     saveSettings();
+    renderTuningList();
+    renderTabs();
+    if (currentTabMetadata) saveCurrentTab();
 });
 
 
@@ -1442,13 +1447,6 @@ const syncBtn = document.getElementById('syncBtn');
 const syncBtnText = syncBtn.querySelector('span');
 const lastSyncTimeEl = document.getElementById('lastSyncTime');
 
-window.api.onSyncProgress((msg, pct) => {
-    scraperProgressSection.classList.remove('hidden');
-    scraperProgressSection.style.display = 'flex';
-    scraperStatusText.textContent = msg;
-    scraperProgressBar.style.width = `${pct}%`;
-});
-
 function formatLastSync(timestamp) {
     if (!timestamp) return 'Not synced';
     const date = new Date(timestamp);
@@ -1499,6 +1497,7 @@ async function triggerSync() {
         await window.api.syncLibrary();
         
         globalSettings.lastSyncTime = Date.now();
+        localStorage.setItem('lastSyncTime', globalSettings.lastSyncTime.toString());
         await saveSettings();
         updateLastSyncDisplay();
         
