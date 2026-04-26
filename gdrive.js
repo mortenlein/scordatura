@@ -13,7 +13,7 @@ const TOKEN_PATH = 'token.json';
 class GDriveSync {
     constructor(credentials, userDataPath) {
         this.client_id = credentials.client_id;
-        // PROFESSIONALLY SECURE: Public clients (Desktop/Mobile) do NOT use a client_secret.
+        // Use 127.0.0.1:3000 consistently
         this.redirect_uri = 'http://127.0.0.1:3000';
         this.oAuth2Client = new OAuth2Client(this.client_id, null, this.redirect_uri);
         this.tokenPath = path.join(userDataPath, TOKEN_PATH);
@@ -24,17 +24,28 @@ class GDriveSync {
     log(msg) {
         const time = new Date().toISOString();
         console.log(`[SYNC] ${msg}`);
-        try { fs.appendFileSync(this.logPath, `${time} - ${msg}\n`); } catch (e) {}
+        try {
+            fs.appendFileSync(this.logPath, `${time} - ${msg}\n`);
+        } catch (e) {}
     }
 
     async authenticate() {
         if (fs.existsSync(this.tokenPath)) {
+            this.log("Loading existing token...");
             try {
-                const token = JSON.parse(fs.readFileSync(this.tokenPath));
-                this.oAuth2Client.setCredentials(token);
+                const token = fs.readFileSync(this.tokenPath);
+                const creds = JSON.parse(token);
+                this.oAuth2Client.setCredentials(creds);
+                
+                if (creds.expiry_date && creds.expiry_date <= Date.now()) {
+                    this.log("Token expired, refreshing...");
+                    const { credentials } = await this.oAuth2Client.refreshAccessToken();
+                    this.oAuth2Client.setCredentials(credentials);
+                    fs.writeFileSync(this.tokenPath, JSON.stringify(credentials));
+                }
                 return true;
             } catch (e) {
-                this.log("Token invalid, re-authenticating...");
+                this.log(`Auth state error: ${e.message}. Re-authenticating...`);
             }
         }
         return this.getNewToken();
@@ -53,7 +64,7 @@ class GDriveSync {
 
     async getNewToken() {
         return new Promise((resolve, reject) => {
-            this.log("Starting secure PKCE flow...");
+            this.log("Starting authentication flow...");
             const codeVerifier = this.generateCodeVerifier();
             const codeChallenge = this.generateCodeChallenge(codeVerifier);
 
@@ -65,13 +76,24 @@ class GDriveSync {
                 prompt: 'consent'
             });
 
+            let codeProcessed = false;
+
             const server = http.createServer(async (req, res) => {
                 try {
+                    if (req.url.includes('favicon.ico')) {
+                        res.writeHead(404);
+                        res.end();
+                        return;
+                    }
+
+                    // Parse with base URL for reliability
                     const reqUrl = new url.URL(req.url, 'http://127.0.0.1:3000');
-                    if (reqUrl.pathname === '/') {
-                        const code = reqUrl.searchParams.get('code');
+                    const code = reqUrl.searchParams.get('code');
+
+                    if (code && !codeProcessed) {
+                        codeProcessed = true;
+                        this.log("Code received from browser.");
                         
-                        // Send response to browser first
                         res.writeHead(200, { 'Content-Type': 'text/html' });
                         res.end(`
                             <html>
@@ -113,32 +135,41 @@ class GDriveSync {
                             </html>
                         `);
                         
-                        this.log("Code received, exchanging for tokens...");
-                        
-                        // SECURE TOKEN EXCHANGE (Code + Verifier, NO Secret)
+                        this.log("Exchanging code for tokens...");
                         const { tokens } = await this.oAuth2Client.getToken({
                             code: code,
                             codeVerifier: codeVerifier
                         });
                         
+                        this.log("Tokens received, saving to disk.");
                         this.oAuth2Client.setCredentials(tokens);
                         fs.writeFileSync(this.tokenPath, JSON.stringify(tokens));
                         
-                        this.log("Authentication successful.");
-                        server.close();
-                        resolve(true);
+                        setTimeout(() => {
+                            server.close();
+                            resolve(true);
+                        }, 500);
+                    } else if (!code && !codeProcessed) {
+                        res.writeHead(400);
+                        res.end('Waiting for authentication code...');
                     }
                 } catch (e) {
-                    this.log(`Critical Auth Error: ${e.message}`);
+                    this.log(`Token exchange error: ${e.message}`);
                     if (!res.headersSent) {
                         res.writeHead(500);
-                        res.end('Authentication failed');
+                        res.end('Authentication failed.');
                     }
                     server.close();
                     reject(e);
                 }
             }).listen(3000, '127.0.0.1', () => {
+                this.log("Waiting for browser response on http://127.0.0.1:3000 ...");
                 open(authUrl);
+            });
+
+            server.on('error', (e) => {
+                this.log(`Server error: ${e.message}`);
+                reject(e);
             });
         });
     }
@@ -149,6 +180,7 @@ class GDriveSync {
 
     async getOrCreateRootFolder() {
         const drive = await this.getDrive();
+        this.log("Finding Scordatura folder...");
         const res = await drive.files.list({
             q: "name = 'Scordatura' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
             fields: 'files(id, name)',
@@ -156,6 +188,7 @@ class GDriveSync {
         const folders = res.data.files || [];
         if (folders.length) return folders[0].id;
 
+        this.log("Creating new Scordatura folder...");
         const folder = await drive.files.create({
             resource: { name: 'Scordatura', mimeType: 'application/vnd.google-apps.folder' },
             fields: 'id',
@@ -176,47 +209,54 @@ class GDriveSync {
                 pageSize: 1000
             });
             const remoteFiles = res.data.files || [];
+            this.log(`Cloud state: ${remoteFiles.length} files`);
 
             const localTabs = [];
             if (fs.existsSync(this.tabsDir)) {
-                const artistDirs = fs.readdirSync(this.tabsDir, { withFileTypes: true }).filter(d => d.isDirectory());
+                const artistDirs = fs.readdirSync(this.tabsDir, { withFileTypes: true })
+                    .filter(dirent => dirent.isDirectory());
+
                 for (const artistDir of artistDirs) {
                     const artistPath = path.join(this.tabsDir, artistDir.name);
-                    const files = fs.readdirSync(artistPath).filter(f => f.endsWith('.json'));
-                    for (const f of files) {
+                    const songFiles = fs.readdirSync(artistPath).filter(f => f.endsWith('.json'));
+                    for (const songFile of songFiles) {
                         try {
-                            localTabs.push(JSON.parse(fs.readFileSync(path.join(artistPath, f), 'utf-8')));
+                            const data = JSON.parse(fs.readFileSync(path.join(artistPath, songFile), 'utf-8'));
+                            localTabs.push(data);
                         } catch (e) {}
                     }
                 }
             }
+            this.log(`Local state: ${localTabs.length} tabs`);
 
-            // Remote -> Local
-            for (const remote of remoteFiles) {
-                const tabId = remote.name.replace('.json', '');
-                const local = localTabs.find(t => t.id === tabId);
-                const remoteTime = new Date(remote.modifiedTime).getTime();
+            // Download updates
+            for (const remoteFile of remoteFiles) {
+                const tabId = remoteFile.name.replace('.json', '');
+                const localTab = localTabs.find(t => t.id === tabId);
+                const remoteModified = new Date(remoteFile.modifiedTime).getTime();
 
-                if (!local || remoteTime > (local.savedAt || 0)) {
-                    this.log(`Downloading update: ${remote.name}`);
-                    const file = await drive.files.get({ fileId: remote.id, alt: 'media' });
-                    const artistDir = path.join(this.tabsDir, file.data.artistId);
+                if (!localTab || remoteModified > (localTab.savedAt || 0)) {
+                    this.log(`Downloading: ${remoteFile.name}`);
+                    const file = await drive.files.get({ fileId: remoteFile.id, alt: 'media' });
+                    const syncedTab = file.data;
+                    
+                    const artistDir = path.join(this.tabsDir, syncedTab.artistId);
                     if (!fs.existsSync(artistDir)) fs.mkdirSync(artistDir, { recursive: true });
-                    fs.writeFileSync(path.join(artistDir, file.data.song.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json'), JSON.stringify(file.data, null, 2));
+                    fs.writeFileSync(path.join(artistDir, syncedTab.song.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json'), JSON.stringify(syncedTab, null, 2));
                 }
             }
 
-            // Local -> Remote
+            // Upload updates
             for (const tab of localTabs) {
                 const fileName = `${tab.id}.json`;
-                const remote = remoteFiles.find(f => f.name === fileName);
-                const remoteTime = remote ? new Date(remote.modifiedTime).getTime() : 0;
+                const remoteFile = remoteFiles.find(f => f.name === fileName);
+                const remoteModified = remoteFile ? new Date(remoteFile.modifiedTime).getTime() : 0;
 
-                if (!remote || (tab.savedAt || 0) > remoteTime) {
-                    this.log(`Uploading update: ${tab.song}`);
+                if (!remoteFile || (tab.savedAt || 0) > remoteModified) {
+                    this.log(`Uploading: ${tab.song}`);
                     const media = { mimeType: 'application/json', body: JSON.stringify(tab) };
-                    if (remote) {
-                        await drive.files.update({ fileId: remote.id, media: media });
+                    if (remoteFile) {
+                        await drive.files.update({ fileId: remoteFile.id, media: media });
                     } else {
                         await drive.files.create({ resource: { name: fileName, parents: [folderId] }, media: media });
                     }
@@ -225,7 +265,7 @@ class GDriveSync {
             this.log("--- SYNC COMPLETE ---");
             return true;
         } catch (e) {
-            this.log(`Sync Failed: ${e.message}`);
+            this.log(`CRITICAL SYNC ERROR: ${e.message}`);
             throw e;
         }
     }

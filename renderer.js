@@ -1435,3 +1435,45 @@ window.api.onProtocolUrl((url) => {
     urlInput.value = url;
     fetchBtn.click();
 });
+
+// GDrive Sync Elements
+const syncBtn = document.getElementById('syncBtn');
+const syncBtnText = syncBtn.querySelector('span');
+
+async function updateSyncButtonState() {
+    const hasToken = await window.api.hasToken();
+    if (syncBtnText) {
+        if (hasToken) {
+            syncBtnText.textContent = 'Sync Library';
+        } else {
+            syncBtnText.textContent = 'Login with Google';
+        }
+    }
+}
+
+syncBtn.addEventListener('click', async () => {
+    triggerSync();
+});
+
+async function triggerSync() {
+    syncBtn.classList.add('syncing');
+    const isInitialLogin = !(await window.api.hasToken());
+    
+    try {
+        if (isInitialLogin && syncBtnText) {
+            syncBtnText.textContent = 'Authenticating...';
+        }
+        await window.api.syncLibrary();
+        await updateSyncButtonState();
+        await refreshLibrary();
+    } catch (e) {
+        console.error(e);
+        alert('Sync failed: ' + e.message);
+        await updateSyncButtonState();
+    } finally {
+        syncBtn.classList.remove('syncing');
+    }
+}
+
+// Update state on load
+window.addEventListener('load', updateSyncButtonState);
