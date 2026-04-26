@@ -256,7 +256,7 @@ class GDriveSync {
             // Download updates
             for (const remoteFile of remoteFiles) {
                 // Find matching local tab based on Google Drive file name (which we map to 'artist_id--song_id.json')
-                const localTab = localTabs.find(t => t.id.replace('/', '--') === remoteFile.name);
+                const localTab = localTabs.find(t => (t.id || '').replace('/', '--') === remoteFile.name);
                 const remoteModified = new Date(remoteFile.modifiedTime).getTime();
 
                 // Buffer of 2000ms to account for filesystem modification time precision
@@ -265,8 +265,8 @@ class GDriveSync {
                     const file = await drive.files.get({ fileId: remoteFile.id, alt: 'media' });
                     const syncedTab = file.data;
                     
-                    const safeArtist = syncedTab.artist.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                    const safeSong = syncedTab.song.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                    const safeArtist = (syncedTab.artist || 'unknown_artist').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                    const safeSong = (syncedTab.song || 'unknown_song').replace(/[^a-z0-9]/gi, '_').toLowerCase();
                     const syncedId = `${safeArtist}/${safeSong}.json`;
                     syncedTab.id = syncedId;
                     
@@ -285,7 +285,7 @@ class GDriveSync {
 
             // Upload updates
             for (const tab of localTabs) {
-                const fileName = tab.id.replace('/', '--');
+                const fileName = (tab.id || '').replace('/', '--');
                 const remoteFile = remoteFiles.find(f => f.name === fileName);
                 const remoteModified = remoteFile ? new Date(remoteFile.modifiedTime).getTime() : 0;
 
