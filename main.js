@@ -17,6 +17,41 @@ const SETTINGS_FILE = path.join(TABS_DIR, 'settings.json');
 
 if (!fs.existsSync(TABS_DIR)) fs.mkdirSync(TABS_DIR, { recursive: true });
 
+// --- MIGRATION SCRIPT: Enforce data model on existing tabs ---
+function migrateExistingTabs() {
+    const artistDirs = fs.readdirSync(TABS_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
+    for (const artistDir of artistDirs) {
+        const dPath = path.join(TABS_DIR, artistDir.name);
+        const songFiles = fs.readdirSync(dPath).filter(f => f.endsWith('.json'));
+        for (const songFile of songFiles) {
+            const filePath = path.join(dPath, songFile);
+            try {
+                const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                let modified = false;
+                
+                const expectedId = `${artistDir.name}/${songFile}`;
+                if (data.id !== expectedId) { data.id = expectedId; modified = true; }
+                if (data.artistId !== artistDir.name) { data.artistId = artistDir.name; modified = true; }
+                if (typeof data.isDeleted !== 'boolean') { data.isDeleted = false; modified = true; }
+                if (typeof data.savedAt !== 'number') { data.savedAt = fs.statSync(filePath).mtimeMs; modified = true; }
+                if (typeof data.transpose !== 'number') { data.transpose = 0; modified = true; }
+                if (typeof data.isStarred !== 'boolean') { data.isStarred = false; modified = true; }
+                
+                if (modified) {
+                    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+                    // Keep the original modification time so sync doesn't go crazy if not necessary
+                    const mtime = new Date(data.savedAt);
+                    fs.utimesSync(filePath, mtime, mtime);
+                }
+            } catch (e) {
+                console.error(`Error migrating ${filePath}:`, e);
+            }
+        }
+    }
+}
+migrateExistingTabs();
+// --- END MIGRATION SCRIPT ---
+
 const syncManager = new GDriveSync({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET }, app.getPath('userData'));
 
 let mainWindow;
