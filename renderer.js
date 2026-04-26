@@ -193,6 +193,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     renderTuningList();
     await refreshLibrary();
+    updateLastSyncDisplay();
     showDashboard();
 });
 
