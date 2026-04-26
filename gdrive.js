@@ -244,6 +244,7 @@ class GDriveSync {
             this.log(`Cloud state: ${remoteFiles.length} valid files`);
 
             if (onProgress) onProgress("Analyzing local files...", 30);
+            const localTabs = [];
             if (fs.existsSync(this.tabsDir)) {
                 const artistDirs = fs.readdirSync(this.tabsDir, { withFileTypes: true })
                     .filter(dirent => dirent.isDirectory());
