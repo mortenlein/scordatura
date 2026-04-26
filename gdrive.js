@@ -13,12 +13,12 @@ const TOKEN_PATH = 'token.json';
 class GDriveSync {
     constructor(credentials, userDataPath) {
         this.client_id = credentials.client_id;
-        // Use 127.0.0.1:3000 consistently
-        this.redirect_uri = 'http://127.0.0.1:3000';
-        this.oAuth2Client = new OAuth2Client(this.client_id, null, this.redirect_uri);
+        this.client_secret = credentials.client_secret;
         this.tokenPath = path.join(userDataPath, TOKEN_PATH);
         this.tabsDir = path.join(userDataPath, 'tabs');
         this.logPath = path.join(userDataPath, 'scordatura_sync.log');
+        // Will be initialized with dynamic redirect URIs during authenticate
+        this.oAuth2Client = new OAuth2Client(this.client_id, this.client_secret);
     }
 
     log(msg) {
@@ -68,14 +68,6 @@ class GDriveSync {
             const codeVerifier = this.generateCodeVerifier();
             const codeChallenge = this.generateCodeChallenge(codeVerifier);
 
-            const authUrl = this.oAuth2Client.generateAuthUrl({
-                access_type: 'offline',
-                scope: SCOPES,
-                code_challenge: codeChallenge,
-                code_challenge_method: 'S256',
-                prompt: 'consent'
-            });
-
             let codeProcessed = false;
 
             const server = http.createServer(async (req, res) => {
@@ -86,8 +78,7 @@ class GDriveSync {
                         return;
                     }
 
-                    // Parse with base URL for reliability
-                    const reqUrl = new url.URL(req.url, 'http://127.0.0.1:3000');
+                    const reqUrl = new url.URL(req.url, `http://127.0.0.1:${server.address().port}`);
                     const code = reqUrl.searchParams.get('code');
 
                     if (code && !codeProcessed) {
@@ -162,15 +153,38 @@ class GDriveSync {
                     server.close();
                     reject(e);
                 }
-            }).listen(3000, '127.0.0.1', () => {
-                this.log("Waiting for browser response on http://127.0.0.1:3000 ...");
-                open(authUrl);
             });
 
             server.on('error', (e) => {
-                this.log(`Server error: ${e.message}`);
-                reject(e);
+                if (e.code === 'EADDRINUSE') {
+                    this.log('Port 3000 in use, falling back to dynamic port...');
+                    server.listen(0, '127.0.0.1');
+                } else {
+                    this.log(`Server error: ${e.message}`);
+                    reject(e);
+                }
             });
+
+            server.on('listening', () => {
+                const port = server.address().port;
+                this.log(`Auth server listening on http://127.0.0.1:${port} ...`);
+                
+                const redirect_uri = `http://127.0.0.1:${port}`;
+                this.oAuth2Client = new OAuth2Client(this.client_id, this.client_secret, redirect_uri);
+                
+                const authUrl = this.oAuth2Client.generateAuthUrl({
+                    access_type: 'offline',
+                    scope: SCOPES,
+                    code_challenge: codeChallenge,
+                    code_challenge_method: 'S256',
+                    prompt: 'consent'
+                });
+                
+                open(authUrl);
+            });
+
+            // Start listening on 3000 first (Google exact match URIs often use this)
+            server.listen(3000, '127.0.0.1');
         });
     }
 
@@ -218,10 +232,20 @@ class GDriveSync {
 
                 for (const artistDir of artistDirs) {
                     const artistPath = path.join(this.tabsDir, artistDir.name);
-                    const songFiles = fs.readdirSync(artistPath).filter(f => f.endsWith('.json'));
+                    const songFiles = fs.readdirSync(artistPath).filter(f => f.endsWith('.json') && f !== 'settings.json');
                     for (const songFile of songFiles) {
                         try {
-                            const data = JSON.parse(fs.readFileSync(path.join(artistPath, songFile), 'utf-8'));
+                            const filePath = path.join(artistPath, songFile);
+                            const stat = fs.statSync(filePath);
+                            const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                            data._mtime = stat.mtimeMs;
+                            data._filePath = filePath;
+                            
+                            // Fallback ID for older or manually added files
+                            if (!data.id) {
+                                data.id = `${artistDir.name}/${songFile}`;
+                            }
+                            
                             localTabs.push(data);
                         } catch (e) {}
                     }
@@ -231,34 +255,62 @@ class GDriveSync {
 
             // Download updates
             for (const remoteFile of remoteFiles) {
-                const tabId = remoteFile.name.replace('.json', '');
-                const localTab = localTabs.find(t => t.id === tabId);
+                // Find matching local tab based on Google Drive file name (which we map to 'artist_id--song_id.json')
+                const localTab = localTabs.find(t => t.id.replace('/', '--') === remoteFile.name);
                 const remoteModified = new Date(remoteFile.modifiedTime).getTime();
 
-                if (!localTab || remoteModified > (localTab.savedAt || 0)) {
+                // Buffer of 2000ms to account for filesystem modification time precision
+                if (!localTab || remoteModified > localTab._mtime + 2000) {
                     this.log(`Downloading: ${remoteFile.name}`);
                     const file = await drive.files.get({ fileId: remoteFile.id, alt: 'media' });
                     const syncedTab = file.data;
                     
-                    const artistDir = path.join(this.tabsDir, syncedTab.artistId);
+                    const safeArtist = syncedTab.artist.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                    const safeSong = syncedTab.song.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                    const syncedId = `${safeArtist}/${safeSong}.json`;
+                    syncedTab.id = syncedId;
+                    
+                    const artistDir = path.join(this.tabsDir, safeArtist);
                     if (!fs.existsSync(artistDir)) fs.mkdirSync(artistDir, { recursive: true });
-                    fs.writeFileSync(path.join(artistDir, syncedTab.song.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json'), JSON.stringify(syncedTab, null, 2));
+                    
+                    const filePath = path.join(artistDir, `${safeSong}.json`);
+                    fs.writeFileSync(filePath, JSON.stringify(syncedTab, null, 2));
+                    
+                    // Set local modification time to exactly match the remote file's modifiedTime
+                    // This prevents us from immediately uploading it back in the next sync
+                    const remoteDate = new Date(remoteModified);
+                    fs.utimesSync(filePath, remoteDate, remoteDate);
                 }
             }
 
             // Upload updates
             for (const tab of localTabs) {
-                const fileName = `${tab.id}.json`;
+                const fileName = tab.id.replace('/', '--');
                 const remoteFile = remoteFiles.find(f => f.name === fileName);
                 const remoteModified = remoteFile ? new Date(remoteFile.modifiedTime).getTime() : 0;
 
-                if (!remoteFile || (tab.savedAt || 0) > remoteModified) {
+                if (!remoteFile || tab._mtime > remoteModified + 2000) {
                     this.log(`Uploading: ${tab.song}`);
-                    const media = { mimeType: 'application/json', body: JSON.stringify(tab) };
+                    
+                    const uploadData = { ...tab };
+                    delete uploadData._mtime;
+                    delete uploadData._filePath;
+                    
+                    const media = { mimeType: 'application/json', body: JSON.stringify(uploadData) };
+                    
                     if (remoteFile) {
-                        await drive.files.update({ fileId: remoteFile.id, media: media });
+                        const updateRes = await drive.files.update({ fileId: remoteFile.id, media: media, fields: 'modifiedTime' });
+                        // Update local mtime to match the server's newly minted modifiedTime to prevent re-downloads
+                        if (updateRes.data && updateRes.data.modifiedTime) {
+                            const newRemoteTime = new Date(updateRes.data.modifiedTime);
+                            fs.utimesSync(tab._filePath, newRemoteTime, newRemoteTime);
+                        }
                     } else {
-                        await drive.files.create({ resource: { name: fileName, parents: [folderId] }, media: media });
+                        const createRes = await drive.files.create({ resource: { name: fileName, parents: [folderId] }, media: media, fields: 'id, modifiedTime' });
+                        if (createRes.data && createRes.data.modifiedTime) {
+                            const newRemoteTime = new Date(createRes.data.modifiedTime);
+                            fs.utimesSync(tab._filePath, newRemoteTime, newRemoteTime);
+                        }
                     }
                 }
             }
