@@ -108,6 +108,8 @@ function initializeIpc() {
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1400, height: 800,
+        frame: false,
+        icon: path.join(__dirname, 'icon.png'),
         webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true }
     });
     mainWindow.loadFile('index.html');
