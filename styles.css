@@ -890,16 +890,26 @@ button:disabled {
 }
 
 .top-bar h1.app-logo {
-  font-size: 1.5rem;
-  letter-spacing: 1px;
+  font-size: 1.6rem;
+  letter-spacing: -1.5px;
   color: #fff;
-  font-weight: 300;
+  font-weight: 900;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: none;
+}
+
+.logo-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(255, 122, 0, 0.3));
 }
 
 .top-bar h1.app-logo span {
-  color: var(--accent);
-  font-weight: bold;
+  display: none; /* We removed the span wrapper for the 'S' */
 }
 
 #chordDiagrams.small .chord-tab {
