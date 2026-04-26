@@ -1447,6 +1447,15 @@ const syncBtn = document.getElementById('syncBtn');
 const syncBtnText = syncBtn.querySelector('span');
 const lastSyncTimeEl = document.getElementById('lastSyncTime');
 
+window.api.onSyncProgress((msg, pct) => {
+    if (scraperProgressSection) {
+        scraperProgressSection.classList.remove('hidden');
+        scraperProgressSection.style.setProperty('display', 'flex', 'important');
+        if (scraperStatusText) scraperStatusText.textContent = msg;
+        if (scraperProgressBar) scraperProgressBar.style.width = `${pct}%`;
+    }
+});
+
 function formatLastSync(timestamp) {
     if (!timestamp) return 'Not synced';
     const date = new Date(timestamp);
@@ -1486,6 +1495,14 @@ syncBtn.addEventListener('click', async () => {
 
 async function triggerSync() {
     syncBtn.classList.add('syncing');
+    
+    // Explicitly show the progress bar real estate
+    if (scraperProgressSection) {
+        scraperProgressSection.classList.remove('hidden');
+        scraperProgressSection.style.setProperty('display', 'flex', 'important');
+        scraperStatusText.textContent = 'Preparing sync...';
+        scraperProgressBar.style.width = '0%';
+    }
     
     try {
         const hasToken = await window.api.hasToken();
