@@ -81,7 +81,8 @@ let globalSettings = {
     smallChords: false,
     activeTuningId: 'standard',
     starredTunings: [],
-    customTunings: []
+    customTunings: [],
+    lastSyncTime: null
 };
 
 const DEFAULT_TUNINGS = [
@@ -1439,6 +1440,36 @@ window.api.onProtocolUrl((url) => {
 // GDrive Sync Elements
 const syncBtn = document.getElementById('syncBtn');
 const syncBtnText = syncBtn.querySelector('span');
+const lastSyncTimeEl = document.getElementById('lastSyncTime');
+
+window.api.onSyncProgress((msg, pct) => {
+    scraperProgressSection.classList.remove('hidden');
+    scraperProgressSection.style.display = 'flex';
+    scraperStatusText.textContent = msg;
+    scraperProgressBar.style.width = `${pct}%`;
+});
+
+function formatLastSync(timestamp) {
+    if (!timestamp) return 'Not synced';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function updateLastSyncDisplay() {
+    if (lastSyncTimeEl) {
+        lastSyncTimeEl.textContent = formatLastSync(globalSettings.lastSyncTime);
+    }
+}
+
+// Update the display every minute
+setInterval(updateLastSyncDisplay, 60000);
 
 async function updateSyncButtonState() {
     const hasToken = await window.api.hasToken();
@@ -1466,6 +1497,11 @@ async function triggerSync() {
         }
         
         await window.api.syncLibrary();
+        
+        globalSettings.lastSyncTime = Date.now();
+        await saveSettings();
+        updateLastSyncDisplay();
+        
         await updateSyncButtonState();
         await refreshLibrary();
     } catch (e) {
@@ -1482,4 +1518,15 @@ async function triggerSync() {
 }
 
 // Update state on load
-window.addEventListener('load', updateSyncButtonState);
+window.addEventListener('load', () => {
+    updateSyncButtonState();
+    updateLastSyncDisplay();
+    
+    // Auto-sync every 10 minutes if we have a token
+    setInterval(async () => {
+        const hasToken = await window.api.hasToken();
+        if (hasToken && !syncBtn.classList.contains('syncing')) {
+            triggerSync();
+        }
+    }, 10 * 60 * 1000); // 10 minutes
+});
