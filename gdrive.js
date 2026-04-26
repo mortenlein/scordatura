@@ -73,7 +73,45 @@ class GDriveSync {
                         
                         // Send response to browser first
                         res.writeHead(200, { 'Content-Type': 'text/html' });
-                        res.end('<h1>Success!</h1><p>You can close this tab and return to the app.</p>');
+                        res.end(`
+                            <html>
+                                <head>
+                                    <title>Scordatura - Auth Success</title>
+                                    <style>
+                                        body { 
+                                            background-color: #111111; 
+                                            color: white; 
+                                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                                            display: flex;
+                                            flex-direction: column;
+                                            align-items: center;
+                                            justify-content: center;
+                                            height: 100vh;
+                                            margin: 0;
+                                        }
+                                        .container {
+                                            text-align: center;
+                                            padding: 40px;
+                                            background: #1a1a1a;
+                                            border-radius: 24px;
+                                            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                                            border: 1px solid #333;
+                                        }
+                                        h1 { color: #ff7a00; letter-spacing: 2px; margin-bottom: 10px; }
+                                        p { color: #888; font-size: 1.1rem; }
+                                        .icon { font-size: 48px; margin-bottom: 20px; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div class="container">
+                                        <div class="icon">🎸</div>
+                                        <h1>AUTHENTICATED</h1>
+                                        <p>Your library is now syncing.</p>
+                                        <p style="font-size: 0.9rem; margin-top: 20px;">You can close this tab and return to the app.</p>
+                                    </div>
+                                </body>
+                            </html>
+                        `);
                         
                         this.log("Code received, exchanging for tokens...");
                         
