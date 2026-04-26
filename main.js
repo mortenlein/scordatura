@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const cheerio = require('cheerio');
 
-// OAuth 2.0 Client ID for Scordatura Desktop (Public Identifier - Safe for Git)
+// OAuth 2.0 Client ID for Scordatura Desktop (Public ID - safe for Git)
 const CLIENT_ID = '441422462550-ikj32d57kuojel24hogmfnkdsvc6b7u7.apps.googleusercontent.com';
 
 // Register the custom protocol
@@ -44,7 +44,7 @@ if (!fs.existsSync(TABS_DIR)) {
     fs.mkdirSync(TABS_DIR, { recursive: true });
 }
 
-// Initializing sync manager without a secret - secure PKCE standard
+// PROFESSIONALLY SECURE: Initializing without a secret - secure PKCE standard
 const syncManager = new GDriveSync({
     client_id: CLIENT_ID
 }, app.getPath('userData'));
