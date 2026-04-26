@@ -18,5 +18,6 @@ contextBridge.exposeInMainWorld('api', {
     hasToken: () => ipcRenderer.invoke('has-token'),
     initiateAuth: () => ipcRenderer.invoke('initiate-auth'),
     syncLibrary: () => ipcRenderer.invoke('sync-library'),
-    onSyncProgress: (callback) => ipcRenderer.on('sync-progress', (event, msg, pct) => callback(msg, pct))
+    onSyncProgress: (callback) => ipcRenderer.on('sync-progress', (event, msg, pct) => callback(msg, pct)),
+    getPaths: () => ipcRenderer.invoke('get-paths')
 });

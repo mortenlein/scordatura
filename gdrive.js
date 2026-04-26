@@ -230,19 +230,38 @@ class GDriveSync {
             });
             const allRemoteFiles = res.data.files || [];
 
-            // Clean up buggy filenames from previous broken agent syncs
+            // Clean up buggy filenames and duplicates from previous broken agent syncs
             const remoteFiles = [];
+            const seenNames = new Map();
+
             for (const rf of allRemoteFiles) {
-                if (rf.name.includes('/') || rf.name.endsWith('.json.json')) {
+                if (rf.name.includes('/') || rf.name.endsWith('.json.json') || rf.name === 'undefined.json') {
                     this.log(`Trashing broken cloud file: ${rf.name}`);
                     try { await drive.files.update({ fileId: rf.id, resource: { trashed: true } }); } catch (e) {}
+                    continue;
+                }
+
+                const existing = seenNames.get(rf.name);
+                if (existing) {
+                    // We have a duplicate name! Keep the newest one and trash the old one.
+                    const existingTime = new Date(existing.modifiedTime).getTime();
+                    const rfTime = new Date(rf.modifiedTime).getTime();
+
+                    if (rfTime > existingTime) {
+                        this.log(`Trashing older duplicate cloud file: ${rf.name} (Keep: ${rf.id})`);
+                        try { await drive.files.update({ fileId: existing.id, resource: { trashed: true } }); } catch (e) {}
+                        seenNames.set(rf.name, rf);
+                    } else {
+                        this.log(`Trashing older duplicate cloud file: ${rf.name} (Keep: ${existing.id})`);
+                        try { await drive.files.update({ fileId: rf.id, resource: { trashed: true } }); } catch (e) {}
+                    }
                 } else {
-                    remoteFiles.push(rf);
+                    seenNames.set(rf.name, rf);
                 }
             }
 
-            this.log(`Cloud state: ${remoteFiles.length} valid files`);
-
+            remoteFiles.push(...seenNames.values());
+            this.log(`Cloud state: ${remoteFiles.length} unique valid files`);
             if (onProgress) onProgress("Analyzing local files...", 30);
             const localTabs = [];
             if (fs.existsSync(this.tabsDir)) {
@@ -272,7 +291,7 @@ class GDriveSync {
             }
             this.log(`Local state: ${localTabs.length} tabs`);
 
-            // Download updates
+            // Phase 1: Download updates from Cloud
             let dCount = 0;
             for (const remoteFile of remoteFiles) {
                 const remoteModified = new Date(remoteFile.modifiedTime).getTime();
@@ -282,9 +301,9 @@ class GDriveSync {
                     onProgress(`Checking cloud: ${remoteFile.name}`, 30 + Math.round((dCount / remoteFiles.length) * 35));
                 }
 
-                // Download if local missing OR remote is strictly newer (with 3s buffer for safety)
-                if (!localTab || (remoteModified > localTab._mtime + 3000)) {
-                    this.log(`Syncing from cloud: ${remoteFile.name}`);
+                // Download if local missing OR remote is strictly newer (with 5s buffer for safety)
+                if (!localTab || (remoteModified > localTab._mtime + 5000)) {
+                    this.log(`Cloud is newer: ${remoteFile.name} (Remote: ${remoteModified}, Local: ${localTab ? localTab._mtime : 'missing'})`);
                     if (onProgress) onProgress(`Downloading: ${remoteFile.name}`, 30 + Math.round((dCount / remoteFiles.length) * 35));
                     
                     const file = await drive.files.get({ fileId: remoteFile.id, alt: 'media' });
@@ -301,24 +320,49 @@ class GDriveSync {
                     const filePath = path.join(artistDir, `${safeSong}.json`);
                     fs.writeFileSync(filePath, JSON.stringify(syncedTab, null, 2));
                     
-                    // Set local modification time to match the remote file's modifiedTime
+                    // Force local filesystem mtime to exactly match remote modifiedTime
                     const remoteDate = new Date(remoteModified);
                     fs.utimesSync(filePath, remoteDate, remoteDate);
                 }
                 dCount++;
             }
 
-            // Upload updates
+            // Phase 2: Re-read local state to get fresh mtimes before Upload phase
+            const freshLocalTabs = [];
+            if (fs.existsSync(this.tabsDir)) {
+                const artistDirs = fs.readdirSync(this.tabsDir, { withFileTypes: true }).filter(d => d.isDirectory());
+                for (const artistDir of artistDirs) {
+                    const artistPath = path.join(this.tabsDir, artistDir.name);
+                    const songFiles = fs.readdirSync(artistPath).filter(f => f.endsWith('.json') && f !== 'settings.json');
+                    for (const songFile of songFiles) {
+                        try {
+                            const filePath = path.join(artistPath, songFile);
+                            const stat = fs.statSync(filePath);
+                            const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                            data._mtime = stat.mtimeMs;
+                            data._filePath = filePath;
+                            if (!data.id) data.id = `${artistDir.name}/${songFile}`;
+                            freshLocalTabs.push(data);
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            // Phase 3: Upload local updates to Cloud
             let uCount = 0;
-            for (const tab of localTabs) {
-                if (onProgress && localTabs.length > 0) onProgress(`Checking uploads (${uCount}/${localTabs.length})...`, 65 + Math.round((uCount / localTabs.length) * 30));
+            for (const tab of freshLocalTabs) {
                 const fileName = (tab.id || '').replace('/', '--');
                 const remoteFile = remoteFiles.find(f => f.name === fileName);
                 const remoteModified = remoteFile ? new Date(remoteFile.modifiedTime).getTime() : 0;
 
-                if (!remoteFile || tab._mtime > remoteModified + 2000) {
-                    if (onProgress) onProgress(`Uploading: ${tab.song}`, 65 + Math.round((uCount / localTabs.length) * 30));
-                    this.log(`Uploading: ${tab.song}`);
+                if (onProgress && freshLocalTabs.length > 0) {
+                    onProgress(`Checking local: ${tab.song}`, 65 + Math.round((uCount / freshLocalTabs.length) * 30));
+                }
+
+                // Upload if remote missing OR local is strictly newer (with 5s buffer for safety)
+                if (!remoteFile || tab._mtime > remoteModified + 5000) {
+                    this.log(`Local is newer: ${tab.song} (Local: ${tab._mtime}, Remote: ${remoteModified})`);
+                    if (onProgress) onProgress(`Uploading: ${tab.song}`, 65 + Math.round((uCount / freshLocalTabs.length) * 30));
                     
                     const uploadData = { ...tab };
                     delete uploadData._mtime;
@@ -328,7 +372,6 @@ class GDriveSync {
                     
                     if (remoteFile) {
                         const updateRes = await drive.files.update({ fileId: remoteFile.id, media: media, fields: 'modifiedTime' });
-                        // Update local mtime to match the server's newly minted modifiedTime to prevent re-downloads
                         if (updateRes.data && updateRes.data.modifiedTime) {
                             const newRemoteTime = new Date(updateRes.data.modifiedTime);
                             fs.utimesSync(tab._filePath, newRemoteTime, newRemoteTime);
@@ -341,8 +384,11 @@ class GDriveSync {
                         }
                     }
                 }
+                uCount++;
             }
+
             this.log("--- SYNC COMPLETE ---");
+            if (onProgress) onProgress("Sync Complete!", 100);
             return true;
         } catch (e) {
             this.log(`CRITICAL SYNC ERROR: ${e.message}`);

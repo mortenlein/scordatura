@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const cheerio = require('cheerio');
 
 const CLIENT_ID = '441422462550-ikj32d57kuojel24hogmfnkdsvc6b7u7.apps.googleusercontent.com';
 const CLIENT_SECRET = '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';
+
+// Remove default menu early
+Menu.setApplicationMenu(null);
 
 if (!app.requestSingleInstanceLock()) {
     app.quit();
