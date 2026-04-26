@@ -210,13 +210,19 @@ class GDriveSync {
         return folder.data.id;
     }
 
-    async sync() {
+    async sync(onProgress) {
         try {
             this.log("--- SYNC START ---");
+            if (onProgress) onProgress("Authenticating...", 5);
             await this.authenticate();
+            
+            if (onProgress) onProgress("Connecting to Google Drive...", 10);
             const drive = await this.getDrive();
+            
+            if (onProgress) onProgress("Finding Scordatura folder...", 15);
             const folderId = await this.getOrCreateRootFolder();
 
+            if (onProgress) onProgress("Fetching cloud library state...", 20);
             const res = await drive.files.list({
                 q: `'${folderId}' in parents and trashed = false`,
                 fields: 'files(id, name, modifiedTime)',
