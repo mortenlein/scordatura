@@ -275,15 +275,18 @@ class GDriveSync {
             // Download updates
             let dCount = 0;
             for (const remoteFile of remoteFiles) {
-                if (onProgress && remoteFiles.length > 0) onProgress(`Checking downloads (${dCount}/${remoteFiles.length})...`, 30 + Math.round((dCount / remoteFiles.length) * 35));
-                // Find matching local tab based on Google Drive file name (which we map to 'artist_id--song_id.json')
-                const localTab = localTabs.find(t => (t.id || '').replace('/', '--') === remoteFile.name);
                 const remoteModified = new Date(remoteFile.modifiedTime).getTime();
+                const localTab = localTabs.find(t => (t.id || '').replace('/', '--') === remoteFile.name);
 
-                // Buffer of 2000ms to account for filesystem modification time precision
-                if (!localTab || remoteModified > localTab._mtime + 2000) {
+                if (onProgress && remoteFiles.length > 0) {
+                    onProgress(`Checking cloud: ${remoteFile.name}`, 30 + Math.round((dCount / remoteFiles.length) * 35));
+                }
+
+                // Download if local missing OR remote is strictly newer (with 3s buffer for safety)
+                if (!localTab || (remoteModified > localTab._mtime + 3000)) {
+                    this.log(`Syncing from cloud: ${remoteFile.name}`);
                     if (onProgress) onProgress(`Downloading: ${remoteFile.name}`, 30 + Math.round((dCount / remoteFiles.length) * 35));
-                    this.log(`Downloading: ${remoteFile.name}`);
+                    
                     const file = await drive.files.get({ fileId: remoteFile.id, alt: 'media' });
                     const syncedTab = file.data;
                     
@@ -298,11 +301,11 @@ class GDriveSync {
                     const filePath = path.join(artistDir, `${safeSong}.json`);
                     fs.writeFileSync(filePath, JSON.stringify(syncedTab, null, 2));
                     
-                    // Set local modification time to exactly match the remote file's modifiedTime
-                    // This prevents us from immediately uploading it back in the next sync
+                    // Set local modification time to match the remote file's modifiedTime
                     const remoteDate = new Date(remoteModified);
                     fs.utimesSync(filePath, remoteDate, remoteDate);
                 }
+                dCount++;
             }
 
             // Upload updates
