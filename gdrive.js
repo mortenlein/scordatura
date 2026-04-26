@@ -228,10 +228,22 @@ class GDriveSync {
                 fields: 'files(id, name, modifiedTime)',
                 pageSize: 1000
             });
-            const remoteFiles = res.data.files || [];
-            this.log(`Cloud state: ${remoteFiles.length} files`);
+            const allRemoteFiles = res.data.files || [];
 
-            const localTabs = [];
+            // Clean up buggy filenames from previous broken agent syncs
+            const remoteFiles = [];
+            for (const rf of allRemoteFiles) {
+                if (rf.name.includes('/') || rf.name.endsWith('.json.json')) {
+                    this.log(`Trashing broken cloud file: ${rf.name}`);
+                    try { await drive.files.update({ fileId: rf.id, resource: { trashed: true } }); } catch (e) {}
+                } else {
+                    remoteFiles.push(rf);
+                }
+            }
+
+            this.log(`Cloud state: ${remoteFiles.length} valid files`);
+
+            if (onProgress) onProgress("Analyzing local files...", 30);
             if (fs.existsSync(this.tabsDir)) {
                 const artistDirs = fs.readdirSync(this.tabsDir, { withFileTypes: true })
                     .filter(dirent => dirent.isDirectory());
