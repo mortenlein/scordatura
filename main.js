@@ -78,6 +78,14 @@ function initializeIpc() {
         const safeSong = tab.song.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const artistDir = path.join(TABS_DIR, safeArtist);
         if (!fs.existsSync(artistDir)) fs.mkdirSync(artistDir, { recursive: true });
+        
+        tab.id = `${safeArtist}/${safeSong}.json`;
+        tab.artistId = safeArtist;
+        tab.isDeleted = tab.isDeleted || false;
+        tab.savedAt = Date.now();
+        if (typeof tab.transpose !== 'number') tab.transpose = 0;
+        if (typeof tab.isStarred !== 'boolean') tab.isStarred = false;
+
         fs.writeFileSync(path.join(artistDir, safeSong + '.json'), JSON.stringify(tab, null, 2));
         return true;
     });
@@ -96,6 +104,56 @@ function initializeIpc() {
             return true;
         }
         return false;
+    });
+
+    ipcMain.removeHandler('delete-artist');
+    ipcMain.handle('delete-artist', (event, artistFolderId) => {
+        const artistDir = path.join(TABS_DIR, artistFolderId);
+        if (fs.existsSync(artistDir)) {
+            const songFiles = fs.readdirSync(artistDir).filter(f => f.endsWith('.json') && f !== 'settings.json');
+            for (const songFile of songFiles) {
+                const filePath = path.join(artistDir, songFile);
+                const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                data.isDeleted = true;
+                data.savedAt = Date.now();
+                fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+            }
+            return true;
+        }
+        return false;
+    });
+
+    ipcMain.removeHandler('update-tab-meta');
+    ipcMain.handle('update-tab-meta', (event, { oldId, newArtist, newSong }) => {
+        const oldPath = path.join(TABS_DIR, oldId);
+        
+        if (fs.existsSync(oldPath)) {
+            const data = JSON.parse(fs.readFileSync(oldPath, 'utf-8'));
+            data.isDeleted = true;
+            data.savedAt = Date.now();
+            fs.writeFileSync(oldPath, JSON.stringify(data, null, 2), 'utf-8');
+            
+            const safeArtist = newArtist.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const safeSong = newSong.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const newId = `${safeArtist}/${safeSong}.json`;
+            
+            const newArtistDir = path.join(TABS_DIR, safeArtist);
+            if (!fs.existsSync(newArtistDir)) fs.mkdirSync(newArtistDir, { recursive: true });
+            
+            const newData = {
+                ...data,
+                id: newId,
+                artistId: safeArtist,
+                artist: newArtist,
+                song: newSong,
+                isDeleted: false,
+                savedAt: Date.now()
+            };
+            
+            fs.writeFileSync(path.join(newArtistDir, safeSong + '.json'), JSON.stringify(newData, null, 2));
+            return { newId };
+        }
+        throw new Error('Original tab not found');
     });
     
     ipcMain.removeHandler('get-settings');
